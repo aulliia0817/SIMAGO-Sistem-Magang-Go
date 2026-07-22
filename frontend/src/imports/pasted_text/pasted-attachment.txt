@@ -1,0 +1,345 @@
+# SIMAGO (Sistem Magang Go)
+
+Dokumen ini berisi prompt untuk generate desain UI/UX aplikasi **SIMAGO**, sistem informasi manajemen kegiatan magang berbasis web responsif untuk **Dinas Kependudukan dan Pencatatan Sipil Kabupaten Madiun**.
+
+**Role:**
+1. Admin
+2. Calon Magang  
+3. Peserta Magang (sama dengan calon magang hanya saja bertambah menunya)
+4. Pembimbing Lapangan (mentor)
+
+**Design system yang konsisten di semua prompt:**
+- Warna: hijau forest elegan `#1B4332` / `#2D5A45` (primer), sage green muted `#87A08F` / `#A8C3AD` (sekunder), netral gading `#FAFAF8`, abu-abu terang `#F1F3F1`, abu-abu teks `#3D4442`. Hindari hijau neon/stabilo.
+- Tipografi: Inter / Poppins / Plus Jakarta Sans, radius sudut lembut, shadow tipis, tanpa gradient mencolok.
+- Web responsif — nyaman diakses desktop maupun browser Android.
+- Badge status: hijau tua = disetujui/aktif, amber muted = menunggu, merah muted = ditolak/perlu revisi.
+
+---
+
+## Halaman Login Universal (Dipakai oleh Semua Role)
+
+Sebelum masuk ke prompt per role, satu hal penting: **hanya ada SATU halaman login** di seluruh sistem SIMAGO, dipakai bersama oleh keempat role — Admin, Pembimbing Lapangan, Calon Magang, dan Peserta Magang. Tidak ada halaman login terpisah per role. 
+```
+HALAMAN LOGIN :
+- Satu halaman login yang sama dipakai untuk keempat role
+- Logo/lambang SIMAGO (ikon daun atau ikon sederhana lain) di bagian atas
+  form, dengan nama sistem dan subjudul singkat Dinas Kependudukan dan
+  Pencatatan Sipil Kabupaten Madiun
+- Form input: email, kata sandi, link "Lupa kata sandi?", tombol "Masuk"
+  full-width warna hijau tua
+- Kotak info kredensial demo di bawah form (background amber muted) yang
+  isinya otomatis berubah sesuai role/tab yang sedang dipilih — menampilkan
+  email dan password akun demo untuk role tersebut
+- Link "Belum punya akun? Daftar sekarang" di bagian paling bawah   
+- Card login diberi sudut membulat (border-radius besar, sekitar 16px),
+  posisi center di halaman dengan latar polos
+- Setelah login berhasil, sistem otomatis mengarahkan ke dashboard sesuai
+  dengan akun demo untuk login (Admin ke dashboard admin, Pembimbing ke dashboard bimbingan, dst)
+
+AKUN DEMO UNTUK LOGIN (data dummy per role, ditampilkan di kotak info
+sesuai tab yang aktif):
+- Admin: email "admin@simago.id" — password "admin123"
+- Pembimbing: email "pembimbing@simago.id" — password "pembimbing123"
+- Calon Magang: email "calon@simago.id" — password "calon123"
+- Peserta Magang: email "peserta@simago.id" — password "peserta123"
+```
+
+---
+
+
+
+```
+Buatkan desain UI/UX untuk aplikasi web bernama SIMAGO (Sistem Magang Go) —
+sistem informasi manajemen kegiatan magang berbasis web responsif untuk
+Dinas Kependudukan dan Pencatatan Sipil Kabupaten Madiun.
+
+KONTEKS PRODUK:
+SIMAGO menggantikan proses pendaftaran magang manual (email, dokumen fisik,
+spreadsheet) dengan alur digital terpusat: pendaftaran, seleksi, monitoring
+kehadiran, hingga penerbitan sertifikat otomatis. Role yang sedang dibangun
+saat ini adalah ADMIN (staf kepegawaian/pengelola sistem instansi).
+
+GAYA VISUAL & WARNA (PENTING):
+- Tema warna: hijau elegan, dewasa, dan profesional — BUKAN hijau terang/neon/norak.
+  Gunakan palet seperti forest green tua (#1B4332 atau #2D5A45) sebagai warna
+  primer/aksen utama, sage green muted (#87A08F atau #A8C3AD) sebagai warna
+  sekunder, dan netral hangat (putih gading #FAFAF8, abu-abu terang #F1F3F1,
+  abu-abu teks #3D4442) sebagai latar dan teks. Hindari hijau saturasi tinggi
+  (seperti hijau stabilo, hijau lime, hijau neon).
+- Kesan keseluruhan: institusional-formal tapi modern, banyak white space,
+  tipografi bersih (sans-serif seperti Inter/Poppins/Plus Jakarta Sans),
+  radius sudut lembut (rounded-lg), shadow tipis/subtle, tanpa gradient
+  mencolok atau warna aksen berlebihan.
+- Badge/label status pakai warna semantik yang tetap harmonis dengan palet
+  hijau: hijau tua untuk "Disetujui/Aktif", kuning muted/amber untuk
+  "Menunggu", merah muted (bukan merah terang) untuk "Ditolak".
+- Layout: sidebar navigasi kiri (fixed, collapsible di mobile), top bar
+  dengan info admin & notifikasi, konten utama dengan card-based layout.
+- Platform: web responsif, harus tetap rapi dan mudah dipakai saat diakses
+  dari browser Android (adaptive layout, sidebar berubah jadi bottom nav
+  atau hamburger menu di mobile).
+
+HALAMAN YANG PERLU DIBUAT UNTUK ROLE ADMIN:
+
+1. Dashboard Ringkasan
+   - Summary card: jumlah pendaftar baru, jumlah menunggu verifikasi,
+     jumlah lolos seleksi, jumlah peserta aktif magang, jumlah sertifikat
+     terbit bulan ini
+   - Grafik sederhana (bar/line chart) tren pendaftaran per bulan
+   - Tabel ringkas aktivitas terbaru (5 pendaftar terbaru)
+
+2. Manajemen Data Pendaftar
+   - Tabel data pendaftar dengan kolom: nama, asal institusi, jurusan,
+     divisi tujuan, tanggal daftar, status
+   - Fitur filter (status, periode, divisi) dan search bar
+   - Tombol untuk buka/tutup periode pendaftaran magang (toggle switch)
+   - Aksi per baris: lihat detail, verifikasi, tolak
+
+3. Verifikasi Berkas
+   - Halaman detail pendaftar dengan preview dokumen (CV, surat pengantar
+     kampus, surat pengantar kesbangpol, transkrip, KTM, pas foto)
+   - Tombol approve/reject per dokumen, dengan kolom catatan jika ditolak
+   - Indikator progres kelengkapan berkas (progress bar)
+
+4. Proses Seleksi
+   - Halaman untuk meloloskan/menolak pendaftar berdasarkan hasil verifikasi
+   - Tombol generate surat balasan (PDF) otomatis
+   - Bulk action (pilih banyak pendaftar sekaligus untuk diproses)
+
+5. Penempatan Peserta
+   - Drag-and-drop atau dropdown untuk menempatkan peserta lolos ke
+     divisi/bidang tertentu, dengan indikator kuota tiap divisi
+
+6. Manajemen Akun Pembimbing Lapangan
+   - Tabel daftar pembimbing, tombol tambah/edit/nonaktifkan akun
+   - Assign pembimbing ke divisi tertentu
+
+7. Monitoring Rekap Kehadiran & Progres
+   - Tabel rekap kehadiran seluruh peserta aktif (persentase kehadiran)
+   - Filter berdasarkan divisi/periode
+   - Indikator visual (progress bar/chart) progres tiap peserta
+
+8. Kelola Sertifikat
+   - Halaman kelola template sertifikat (upload/edit template)
+   - Daftar peserta yang siap menerima sertifikat, tombol approve
+     penerbitan
+
+9. Laporan & Rekapitulasi
+   - Halaman rekap data (pendaftar, peserta aktif, riwayat magang)
+   - Tombol export ke Excel dan PDF
+   - Filter rentang tanggal/periode untuk laporan
+
+OUTPUT YANG DIHARAPKAN:
+Desain high-fidelity untuk seluruh 9 halaman di atas, konsisten dalam satu
+design system (warna, tipografi, komponen, spacing), dengan layout terpisah
+untuk versi desktop dan mobile. Catatan: Admin login lewat halaman login
+universal (lihat bagian "Halaman Login Universal" di awal dokumen ini),
+bukan halaman login terpisah — gunakan akun demo "admin@simago.id" /
+"admin123" pada tab "Admin".
+```
+
+---
+
+## Prompt 2 — Calon Magang & Peserta Magang (Dibangun Kedua, 2 Role Terpisah)
+
+```
+Lanjutan pembangunan aplikasi web SIMAGO (Sistem Magang Go) — sistem
+informasi manajemen kegiatan magang berbasis web responsif untuk Dinas
+Kependudukan dan Pencatatan Sipil Kabupaten Madiun.
+
+Buatkan desain UI/UX untuk satu akun pengguna mahasiswa/pelajar yang memiliki dua status penggunaan dalam satu aplikasi yang sama.
+
+Status pengguna terdiri dari:
+
+1. CALON MAGANG
+   Mahasiswa/pelajar yang baru mendaftar dan sedang melalui proses seleksi.
+
+2. PESERTA MAGANG
+   Mahasiswa/pelajar yang telah dinyatakan lolos seleksi dan sedang menjalani kegiatan magang.
+
+PENTING:
+
+- Calon Magang dan Peserta Magang BUKAN dua aplikasi atau dua dashboard yang berbeda.
+- Keduanya menggunakan akun pengguna yang sama.
+- Setelah status pendaftaran berubah menjadi "Lolos Seleksi", akun yang sama otomatis berubah status menjadi "Peserta Magang".
+- Dashboard utama, struktur navigasi, header, sidebar/bottom navigation, design system, dan layout utama tetap dipertahankan.
+- Yang berubah hanyalah informasi yang ditampilkan pada dashboard serta bertambahnya menu dan fitur sesuai status pengguna.
+- Tujuannya agar pengguna merasa tetap menggunakan aplikasi yang sama tanpa perlu beradaptasi dengan tampilan baru.
+AKUN DEMO UNTUK LOGIN: role Calon Magang dan Peserta Magang memakai
+halaman login universal yang sama dengan role Admin dan Pembimbing (lihat
+bagian "Halaman Login Universal" di awal dokumen ini). Gunakan akun demo:
+- Demo A (Calon Magang): email "calon@simago.id" — password "calon123"
+- Demo B (Peserta Magang): email "peserta@simago.id" — password "peserta123"
+
+GAYA VISUAL & WARNA (WAJIB KONSISTEN DENGAN MODUL SEBELUMNYA):
+- Tema warna: hijau elegan, dewasa, profesional — BUKAN hijau terang/neon/
+  norak. Palet: forest green tua (#1B4332 atau #2D5A45) sebagai warna
+  primer/aksen, sage green muted (#87A08F atau #A8C3AD) sebagai sekunder,
+  netral hangat (putih gading #FAFAF8, abu-abu terang #F1F3F1, abu-abu teks
+  #3D4442) sebagai latar dan teks. Hindari hijau saturasi tinggi/neon.
+- Karena target pengguna didominasi mahasiswa (usia muda), desain boleh
+  sedikit lebih ramah dan approachable dibanding modul admin — namun tetap
+  dalam koridor warna hijau elegan yang sama, hanya beda di penggunaan
+  ilustrasi/ikon yang lebih friendly (rounded icon, ilustrasi flat minimalis).
+- Tipografi bersih (Inter/Poppins/Plus Jakarta Sans), radius sudut lembut,
+  shadow tipis, tanpa gradient mencolok.
+- Layout mobile-first — karena mayoritas peserta kemungkinan mengakses
+  lewat HP Android, prioritaskan kenyamanan navigasi di layar kecil
+  (bottom navigation bar untuk mobile, sidebar untuk desktop).
+- Gunakan stepper/progress indicator yang jelas dan visual untuk proses
+  multi-step (pendaftaran & tracking status).
+- Kedua demo HARUS memakai design system yang identik (warna, tipografi,
+  komponen, radius, spacing) — perbedaan hanya pada konten dan struktur
+  halaman, bukan pada gaya visual.
+
+===========================================
+DEMO A — ROLE: CALON MAGANG (BELUM DITERIMA)
+===========================================
+
+1. Landing/Welcome Screen (opsional tapi disarankan)
+   - Tampilan sambutan singkat sebelum login: nama sistem, tagline singkat,
+     tombol "Daftar Sekarang" dan "Masuk"
+
+2. Halaman Registrasi & Login
+   - Registrasi akun baru (nama lengkap, email, password, konfirmasi
+     password) — khusus untuk role Calon Magang, diakses dari link
+     "Daftar sekarang" di halaman login universal
+   - Halaman verifikasi akun via email (tampilan "cek email kamu" + tombol
+     kirim ulang kode/link verifikasi)
+   - Login memakai halaman login universal yang sudah dijelaskan di awal
+     dokumen (pilih tab "Calon Magang", lalu masuk dengan akun
+     "calon@simago.id" / "calon123")
+
+3. Form Pendaftaran Magang (Multi-Step)
+   - Step 1: Data diri (nama lengkap, NIM/NIS, tanggal lahir, no. HP)
+   - Step 2: Asal institusi (nama kampus/sekolah, jurusan, semester)
+   - Step 3: Detail magang (periode magang yang diinginkan, divisi/bidang
+     yang dituju — tampilkan sisa kuota tiap divisi, motivasi singkat)
+   - Step 4: Review & submit (ringkasan semua data sebelum dikirim, dengan
+     tombol edit per bagian)
+   - Tampilkan progress stepper jelas di bagian atas (1-2-3-4)
+
+4. Halaman Upload Dokumen
+   - List dokumen wajib: CV, surat pengantar kampus, surat pengantar
+     kesbangpol, transkrip nilai, KTM, pas foto
+   - Tiap file punya indikator status dengan badge warna: belum upload
+     (abu-abu), menunggu verifikasi (amber muted), terverifikasi (hijau
+     tua), ditolak (merah muted, dengan catatan alasan penolakan dari admin)
+   - Tombol re-upload untuk file yang ditolak
+   - Progress bar total kelengkapan berkas (misal "4 dari 6 dokumen
+     lengkap")
+
+5. Halaman Tracking Status Pendaftaran
+   - Timeline/stepper visual: Menunggu Verifikasi → Diverifikasi →
+     Proses Seleksi → Lolos Seleksi/Ditolak
+   - Setiap tahap ditandai jelas (selesai/sedang berjalan/belum) dengan
+     ikon centang atau indikator warna
+   - Kartu info tambahan: estimasi tanggal pengumuman, kontak admin jika
+     ada pertanyaan
+   - Tombol unduh surat balasan (PDF) muncul setelah status final
+     (lolos/ditolak)
+   - Kondisi khusus: jika status "Lolos Seleksi", tampilkan banner ajakan
+     untuk lanjut ke tahap berikutnya (misalnya "Selamat! Lihat detail
+     penempatan kamu" — mengarah ke transisi ke dashboard peserta aktif)
+
+====================================================
+PENGEMBANGAN SETELAH STATUS MENJADI PESERTA MAGANG
+====================================================
+
+Setelah admin menyatakan pendaftar lolos seleksi, akun pengguna yang sama berubah status menjadi "Peserta Magang".
+
+Dashboard TIDAK didesain ulang.
+
+Pertahankan:
+
+- Layout dashboard
+- Header
+- Sidebar / Bottom Navigation
+- Design System
+- Komponen UI
+- Struktur halaman
+
+Yang berubah hanya:
+
+- Status pengguna menjadi "Peserta Magang"
+- Ringkasan dashboard menampilkan aktivitas magang
+- Bertambah beberapa menu baru yang sebelumnya tidak dimiliki oleh Calon Magang
+
+
+Desain high-fidelity untuk seluruh perjalanan pengguna mulai dari registrasi hingga selesai magang.
+
+Hasil desain harus menunjukkan bahwa Calon Magang dan Peserta Magang merupakan satu akun dalam satu aplikasi yang sama.
+
+Dashboard, navigasi, dan design system tetap konsisten sepanjang perjalanan pengguna.
+
+Saat status berubah menjadi Peserta Magang, dashboard tidak dibuat ulang, melainkan dikembangkan dengan menampilkan informasi magang dan menambahkan menu baru seperti Absensi, Laporan, dan Sertifikat.
+
+Prioritaskan pengalaman pengguna (UX) yang mulus, sehingga pengguna merasa tetap berada di aplikasi yang sama dari awal pendaftaran hingga selesai magang.
+
+HASIL AKHIRNYA
+Login
+     │
+     ▼
+Dashboard (Calon Magang)
+├── Pendaftaran
+├── Upload Dokumen
+├── Tracking Status
+└── Profil
+     │
+     ▼
+Status: Lolos Seleksi
+     │
+     ▼
+Dashboard yang sama
+├── Dashboard (isi diperbarui)
+├── Pendaftaran ✔
+├── Upload Dokumen ✔
+├── Tracking Status ✔
+├── Absensi      (+)
+├── Laporan      (+)
+├── Sertifikat   (+)
+└── Profil
+
+HALAMAN YANG PERLU DIBUAT UNTUK ROLE PEMBIMBING LAPANGAN:
+
+1. Dashboard Daftar Peserta Bimbingan
+   - Kartu ringkasan: jumlah peserta aktif di bawah bimbingannya,
+     rata-rata kehadiran, jumlah laporan yang perlu direview
+   - Tabel/list daftar peserta bimbingan (hanya yang berada di divisinya),
+     dengan foto, nama, sisa hari magang, status laporan terbaru
+
+2. Halaman Verifikasi/Approve Absensi Harian
+   - Tabel absensi harian seluruh peserta bimbingan (tanggal, jam
+     check-in/check-out, status: hadir/telat/tidak hadir)
+   - Tombol approve/reject per entry absensi, dengan opsi catatan singkat
+   - Filter berdasarkan tanggal atau nama peserta
+
+3. Halaman Review Laporan Harian/Mingguan
+   - List laporan yang masuk dari peserta (judul, tanggal, ringkasan
+     singkat)
+   - Halaman detail laporan dengan kolom komentar/feedback dari
+     pembimbing
+   - Status laporan: belum direview / sudah direview / perlu revisi
+   - Tombol kirim feedback langsung terhubung ke notifikasi peserta
+
+4. Halaman Rekomendasi Kelulusan Magang
+   - Form penilaian akhir peserta (kriteria seperti: kedisiplinan,
+     kemampuan teknis, sikap/attitude, inisiatif) dengan skala rating
+     (misalnya 1-5 atau dropdown kategori)
+   - Kolom catatan/rekomendasi tertulis dari pembimbing
+   - Tombol submit rekomendasi kelayakan sertifikat (akan diteruskan
+     ke admin untuk approval final)
+   - Tampilkan status: draft / sudah dikirim ke admin / sertifikat
+     terbit
+
+OUTPUT YANG DIHARAPKAN:
+Desain high-fidelity untuk seluruh 4 halaman di atas, konsisten penuh
+dengan design system modul Admin dan Peserta sebelumnya (warna: hijau
+forest elegan #1B4332, sage #87A08F, netral gading #FAFAF8), dengan
+layout terpisah untuk versi desktop dan mobile. Catatan: Pembimbing login
+lewat halaman login universal (lihat bagian "Halaman Login Universal" di
+awal dokumen ini), bukan halaman login terpisah — gunakan akun demo
+"pembimbing@simago.id" / "pembimbing123" pada tab "Pembimbing".
+```
+
+---
