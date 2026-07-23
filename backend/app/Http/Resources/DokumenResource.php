@@ -15,7 +15,7 @@ class DokumenResource extends JsonResource
             'nama' => $this->jenis,
             'status' => $this->status,
             'catatan' => $this->catatan,
-            'file_url' => $this->file_path ? \Storage::disk('public')->url($this->file_path) : null,
+            'file_url' => $this->file_path ? "/dokumen/{$this->id}/file" : null,
             'file_name' => $this->file_name,
         ];
     }

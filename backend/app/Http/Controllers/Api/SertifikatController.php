@@ -69,4 +69,21 @@ class SertifikatController extends Controller
 
         return new SertifikatResource($sertifikat);
     }
+
+    /** Unduh file PDF sertifikat lewat backend (lihat catatan di DokumenController::file). */
+    public function file(Request $request, Sertifikat $sertifikat)
+    {
+        $user = $request->user();
+        $isOwner = ($sertifikat->pesertaMagang->mahasiswa->user_id ?? null) === $user->id;
+
+        abort_unless(
+            in_array($user->role, ['admin', 'pembimbing']) || $isOwner,
+            403,
+            'Anda tidak memiliki akses ke sertifikat ini.'
+        );
+        abort_unless($sertifikat->file_path, 404, 'File sertifikat belum diupload.');
+        abort_unless(\Storage::disk('public')->exists($sertifikat->file_path), 404, 'File tidak ditemukan di server.');
+
+        return \Storage::disk('public')->response($sertifikat->file_path, "Sertifikat-{$sertifikat->nomor}.pdf");
+    }
 }

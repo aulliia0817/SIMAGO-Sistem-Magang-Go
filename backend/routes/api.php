@@ -34,6 +34,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profil', [ProfilController::class, 'show']);
     Route::put('/profil', [ProfilController::class, 'update']);
 
+    // Lihat/unduh file — otorisasi (admin/pembimbing atau pemilik) dicek di controller
+    Route::get('/dokumen/{dokumen}/file', [DokumenController::class, 'file']);
+    Route::get('/sertifikat/{sertifikat}/file', [SertifikatController::class, 'file']);
+
     // ── Calon Magang ──────────────────────────────────────────────────────
     Route::middleware('role:calon,peserta')->group(function () {
         Route::post('/pendaftaran', [PendaftaranController::class, 'store']);
