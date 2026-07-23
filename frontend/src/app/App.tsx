@@ -1394,24 +1394,6 @@ function AdminPendaftar({
                         >
                           <Eye size={14} />
                         </button>
-                        {/* <button
-                        <button
-                          disabled={busyId === p.id}
-                          onClick={() => handleVerify(p, "disetujui")}
-                          className="p-1.5 rounded-lg hover:bg-[#D1FAE5] text-[#1B4332] transition-colors disabled:opacity-40"
-                          title="Setujui"
-                        >
-                          <Check size={14} />
-                        </button>
-                        <button
-                          disabled={busyId === p.id}
-                          onClick={() => handleVerify(p, "ditolak")}
-                          className="p-1.5 rounded-lg hover:bg-red-100 text-red-600 transition-colors disabled:opacity-40"
-                          title="Tolak"
-                        >
-                          <XCircle size={14} />
-                        </button>
-                        */}
                       </div>
                     </td>
                   </tr>
