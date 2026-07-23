@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import logoKabupatenMadiun from "../assets/logo-kabupaten-madiun.gif";
 import {
   LayoutDashboard,
   Users,
@@ -441,70 +442,76 @@ function Sidebar({
   };
 
   return (
-    <>
-      {open && (
-        <div
-          className="fixed inset-0 bg-black/40 z-20 lg:hidden"
-          onClick={() => setOpen(false)}
-        />
+    <aside
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      className={cn(
+        "fixed top-0 left-0 h-full z-30 flex flex-col overflow-hidden transition-[width] duration-300",
+        "bg-[#1B4332] text-white",
+        open ? "w-64" : "w-20",
       )}
-      <aside
+    >
+      {/* Logo */}
+      <div
         className={cn(
-          "fixed top-0 left-0 h-full z-30 flex flex-col transition-transform duration-300",
-          "w-64 bg-[#1B4332] text-white",
-          open ? "translate-x-0" : "-translate-x-full",
-          "lg:translate-x-0",
-        )}
-      >
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-white/10">
-          <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center">
-            <span className="text-white font-bold text-sm">S</span>
+            "flex items-center gap-3 px-5 py-5 border-b border-white/10",
+            !open && "justify-center px-0",
+          )}
+        >
+          <div className="w-9 h-9 flex items-center justify-center shrink-0">
+            <img
+              src={logoKabupatenMadiun}
+              alt="Logo Kabupaten Madiun"
+              className="w-full h-full object-contain"
+            />
           </div>
-          <div>
-            <p className="font-bold text-base leading-tight">SIMAGO</p>
-            <p className="text-[10px] text-[#A8C3AD] leading-tight">
-              Sistem Magang Go
-            </p>
-          </div>
-          <button
-            className="ml-auto lg:hidden text-white/60 hover:text-white"
-            onClick={() => setOpen(false)}
-          >
-            <X size={18} />
-          </button>
+          {open && (
+            <div className="whitespace-nowrap">
+              <p className="font-bold text-base leading-tight">SIMAGO</p>
+              <p className="text-[10px] text-[#A8C3AD] leading-tight">
+                Sistem Magang Go
+              </p>
+              <p className="text-[10px] text-[#A8C3AD] leading-tight">
+                Dukcapil Kabupaten Madiun
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Role badge */}
-        <div className="px-4 py-3">
-          <div className="bg-[#2D5A45] rounded-lg px-3 py-2">
-            <p className="text-[10px] text-[#A8C3AD] uppercase tracking-wider font-semibold">
-              Role
-            </p>
-            <p className="text-sm font-semibold text-white">
-              {roleLabel[role]}
-            </p>
+        {open && (
+          <div className="px-4 py-3">
+            <div className="bg-[#2D5A45] rounded-lg px-3 py-2 whitespace-nowrap">
+              <p className="text-[10px] text-[#A8C3AD] uppercase tracking-wider font-semibold">
+                Role
+              </p>
+              <p className="text-sm font-semibold text-white">
+                {roleLabel[role]}
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5">
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4 space-y-0.5">
           {items.map((item) => (
             <button
               key={item.page}
+              title={!open ? item.label : undefined}
               onClick={() => {
                 setPage(item.page);
                 setOpen(false);
               }}
               className={cn(
-                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
+                !open && "justify-center px-0",
                 page === item.page
                   ? "bg-white/15 text-white"
                   : "text-white/65 hover:bg-white/8 hover:text-white",
               )}
             >
               {item.icon}
-              {item.label}
+              {open && item.label}
             </button>
           ))}
         </nav>
@@ -513,32 +520,30 @@ function Sidebar({
         <div className="p-3 border-t border-white/10">
           <button
             onClick={onLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/65 hover:bg-white/8 hover:text-white transition-colors"
+            title={!open ? "Keluar" : undefined}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/65 hover:bg-white/8 hover:text-white transition-colors whitespace-nowrap",
+              !open && "justify-center px-0",
+            )}
           >
-            <LogOut size={18} /> Keluar
+            <LogOut size={18} /> {open && "Keluar"}
           </button>
         </div>
-      </aside>
-    </>
+    </aside>
   );
 }
 
 // ─── TopBar ───────────────────────────────────────────────────────────────────
 
 function TopBar({
-  onMenuClick,
   role,
   userName,
 }: {
-  onMenuClick: () => void;
   role: Role;
   userName: string;
 }) {
   return (
-    <header className="h-14 bg-white border-b border-[#1B4332]/10 flex items-center px-4 gap-4">
-      <button className="lg:hidden text-[#3D4442]" onClick={onMenuClick}>
-        <Menu size={20} />
-      </button>
+    <header className="h-14 shrink-0 bg-white border-b border-[#1B4332]/10 flex items-center px-4 gap-4">
       <div className="flex-1" />
       <button className="relative text-[#6B7770] hover:text-[#1B4332] transition-colors">
         <Bell size={20} />
@@ -583,7 +588,7 @@ function Layout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   return (
-    <div className="min-h-screen bg-[#FAFAF8] font-[Plus_Jakarta_Sans]">
+    <div className="h-screen overflow-hidden bg-[#FAFAF8] font-[Plus_Jakarta_Sans]">
       <Sidebar
         role={role}
         page={page}
@@ -592,47 +597,52 @@ function Layout({
         setOpen={setSidebarOpen}
         onLogout={onLogout}
       />
-      <div className="lg:ml-64 flex flex-col min-h-screen">
+      <div className="ml-20 flex flex-col h-screen">
         <TopBar
-          onMenuClick={() => setSidebarOpen(true)}
           role={role}
           userName={userName}
         />
-        <main className="flex-1 p-5 lg:p-6 overflow-auto">{children}</main>
-        <footer className="bg-white border-t border-[#1B4332]/10 p-3 lg:p-4 text-center sm:text-left">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-[#6B7770] whitespace-normal sm:whitespace-nowrap">
-              Copyright © 2026{" "}
-              <a
-                href="#"
-                className="text-[#1B4332] font-medium hover:underline"
-                target="_blank"
-                rel="noopener noreferrer"
+        <main className="flex-1 min-h-0 p-5 lg:p-6 overflow-y-auto">{children}</main>
+        <footer className="shrink-0 bg-white border-t border-[#1B4332]/10 py-3 lg:py-4 overflow-hidden">
+          <div className="flex w-max animate-marquee">
+            {[0, 1].map((i) => (
+              <p
+                key={i}
+                aria-hidden={i === 1 ? true : undefined}
+                className="text-xs text-[#6B7770] whitespace-nowrap px-6"
               >
-                Aura Nabila
-              </a>{" "}
-              &{" "}
-              <a
-                href="#"
-                className="text-[#1B4332] font-medium hover:underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Aulia Restu Mahardika
-              </a>{" "}
-              <span className="text-[#A8C3AD]">|</span>{" "}
-              <a
-                href="/"
-                className="text-[#1B4332] font-medium hover:underline"
-              >
-                simago
-              </a>
-              . All rights reserved.
-              <span className="mx-2 text-[#A8C3AD]">|</span>
-              Persembahan untuk Dinas Kependudukan dan Pencatatan Sipil
-              Kabupaten Madiun dari Mahasiswa Magang Teknik Informatika
-              Universitas PGRI Madiun
-            </p>
+                Copyright © 2026{" "}
+                <a
+                  href="#"
+                  className="text-[#1B4332] font-medium hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Aura Nabila
+                </a>{" "}
+                &{" "}
+                <a
+                  href="#"
+                  className="text-[#1B4332] font-medium hover:underline"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Aulia Restu Mahardika
+                </a>{" "}
+                <span className="text-[#A8C3AD]">|</span>{" "}
+                <a
+                  href="/"
+                  className="text-[#1B4332] font-medium hover:underline"
+                >
+                  simago
+                </a>
+                . All rights reserved.
+                <span className="mx-2 text-[#A8C3AD]">|</span>
+                Persembahan untuk Dinas Kependudukan dan Pencatatan Sipil
+                Kabupaten Madiun dari Mahasiswa Magang Teknik Informatika
+                Universitas PGRI Madiun
+              </p>
+            ))}
           </div>
         </footer>
       </div>
@@ -759,13 +769,12 @@ function LoginPage({
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-[#1B4332] flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <svg
-              viewBox="0 0 24 24"
-              className="w-8 h-8 text-white fill-current"
-            >
-              <path d="M17 8C8 10 5.9 16.17 3.82 19.97c-.1.19.14.4.31.27A5.35 5.35 0 0 1 7 19c3 0 5-2 7-3 1.12-.57 2.32-.96 3.5-1 2-.1 4 .8 5 2.5.5-1 .67-2.14.5-3.5C22.5 11 20 7 17 8z" />
-            </svg>
+          <div className="w-16 h-16 flex items-center justify-center mx-auto mb-4">
+            <img
+              src={logoKabupatenMadiun}
+              alt="Logo Kabupaten Madiun"
+              className="w-full h-full object-contain"
+            />
           </div>
           <h1 className="text-2xl font-bold text-[#1B4332]">SIMAGO</h1>
           <p className="text-sm text-[#6B7770] mt-1">Sistem Magang Go</p>
@@ -3428,7 +3437,6 @@ function PesertaAbsensi() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [checkingIn, setCheckingIn] = useState(false);
-  const [checkingOut, setCheckingOut] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -3465,9 +3473,9 @@ function PesertaAbsensi() {
   ];
   const now0 = new Date();
   const todayBackendFormat = `${String(now0.getDate()).padStart(2, "0")} ${EN_MONTHS[now0.getMonth()]} ${now0.getFullYear()}`;
-  const todayEntry = entries.find((e) => e.tanggal === todayBackendFormat);
-  const alreadyCheckedInToday = !!todayEntry;
-  const alreadyCheckedOutToday = !!todayEntry?.jam_keluar;
+  const alreadyCheckedInToday = entries.some(
+    (e) => e.tanggal === todayBackendFormat,
+  );
 
   async function checkIn() {
     setCheckingIn(true);
@@ -3483,18 +3491,6 @@ function PesertaAbsensi() {
     }
   }
 
-  async function checkOut() {
-    setCheckingOut(true);
-    try {
-      await api.post("/absensi/checkout");
-      load();
-    } catch (err) {
-      alert(apiErrorMessage(err, "Gagal melakukan check-out."));
-    } finally {
-      setCheckingOut(false);
-    }
-  }
-
   const todayLabel = new Date().toLocaleDateString("id-ID", {
     weekday: "long",
     day: "numeric",
@@ -3506,47 +3502,28 @@ function PesertaAbsensi() {
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-[#1B4332]">Absensi</h1>
 
-      <Card className="flex items-center gap-4 flex-wrap">
+      <Card className="flex items-center gap-4">
         <div className="w-12 h-12 rounded-xl bg-[#D1FAE5] flex items-center justify-center text-[#1B4332]">
           <Fingerprint size={22} />
         </div>
-        <div className="flex-1 min-w-[180px]">
-          <p className="font-bold text-[#1B4332]">Absensi Hari Ini</p>
+        <div className="flex-1">
+          <p className="font-bold text-[#1B4332]">Check In Hari Ini</p>
           <p className="text-sm text-[#6B7770]">
             {todayLabel} —{" "}
-            {alreadyCheckedOutToday
-              ? "Sudah check-in & check-out"
-              : alreadyCheckedInToday
-                ? "Sudah check-in, belum check-out"
-                : "Belum check-in"}
+            {alreadyCheckedInToday ? "Sudah check-in" : "Belum check-in"}
           </p>
         </div>
-        <div className="flex gap-2">
-          <button
-            disabled={checkingIn || alreadyCheckedInToday}
-            onClick={checkIn}
-            className="px-5 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
-          >
-            {alreadyCheckedInToday
-              ? "Sudah Check In"
-              : checkingIn
-                ? "Memproses..."
-                : "Check In"}
-          </button>
-          <button
-            disabled={
-              checkingOut || !alreadyCheckedInToday || alreadyCheckedOutToday
-            }
-            onClick={checkOut}
-            className="px-5 py-2 border border-[#1B4332] text-[#1B4332] text-sm font-semibold rounded-lg hover:bg-[#D1FAE5] transition-colors disabled:opacity-50 disabled:border-[#6B7770]/30 disabled:text-[#6B7770]"
-          >
-            {alreadyCheckedOutToday
-              ? "Sudah Check Out"
-              : checkingOut
-                ? "Memproses..."
-                : "Check Out"}
-          </button>
-        </div>
+        <button
+          disabled={checkingIn || alreadyCheckedInToday}
+          onClick={checkIn}
+          className="px-5 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
+        >
+          {alreadyCheckedInToday
+            ? "Sudah Check In"
+            : checkingIn
+              ? "Memproses..."
+              : "Check In Sekarang"}
+        </button>
       </Card>
 
       <Card>
