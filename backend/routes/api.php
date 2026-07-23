@@ -47,6 +47,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/peserta/saya', [PesertaMagangController::class, 'mine']);
         Route::get('/absensi/saya', [AbsensiController::class, 'mine']);
         Route::post('/absensi', [AbsensiController::class, 'store']);
+        Route::post('/absensi/checkout', [AbsensiController::class, 'checkout']);
         Route::get('/laporan/saya', [LaporanHarianController::class, 'mine']);
         Route::post('/laporan', [LaporanHarianController::class, 'store']);
         Route::get('/sertifikat/saya', [SertifikatController::class, 'mine']);

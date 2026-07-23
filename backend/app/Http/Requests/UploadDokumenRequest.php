@@ -14,7 +14,6 @@ class UploadDokumenRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'jenis' => ['required', 'string', 'max:150'],
             'file' => ['required', 'file', 'mimes:pdf,docx,jpg,jpeg,png', 'max:5120'],
         ];
     }

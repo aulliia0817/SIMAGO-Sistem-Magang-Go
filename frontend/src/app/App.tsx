@@ -3428,6 +3428,7 @@ function PesertaAbsensi() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [checkingIn, setCheckingIn] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -3464,9 +3465,9 @@ function PesertaAbsensi() {
   ];
   const now0 = new Date();
   const todayBackendFormat = `${String(now0.getDate()).padStart(2, "0")} ${EN_MONTHS[now0.getMonth()]} ${now0.getFullYear()}`;
-  const alreadyCheckedInToday = entries.some(
-    (e) => e.tanggal === todayBackendFormat,
-  );
+  const todayEntry = entries.find((e) => e.tanggal === todayBackendFormat);
+  const alreadyCheckedInToday = !!todayEntry;
+  const alreadyCheckedOutToday = !!todayEntry?.jam_keluar;
 
   async function checkIn() {
     setCheckingIn(true);
@@ -3482,6 +3483,18 @@ function PesertaAbsensi() {
     }
   }
 
+  async function checkOut() {
+    setCheckingOut(true);
+    try {
+      await api.post("/absensi/checkout");
+      load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Gagal melakukan check-out."));
+    } finally {
+      setCheckingOut(false);
+    }
+  }
+
   const todayLabel = new Date().toLocaleDateString("id-ID", {
     weekday: "long",
     day: "numeric",
@@ -3493,28 +3506,47 @@ function PesertaAbsensi() {
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-[#1B4332]">Absensi</h1>
 
-      <Card className="flex items-center gap-4">
+      <Card className="flex items-center gap-4 flex-wrap">
         <div className="w-12 h-12 rounded-xl bg-[#D1FAE5] flex items-center justify-center text-[#1B4332]">
           <Fingerprint size={22} />
         </div>
-        <div className="flex-1">
-          <p className="font-bold text-[#1B4332]">Check In Hari Ini</p>
+        <div className="flex-1 min-w-[180px]">
+          <p className="font-bold text-[#1B4332]">Absensi Hari Ini</p>
           <p className="text-sm text-[#6B7770]">
             {todayLabel} —{" "}
-            {alreadyCheckedInToday ? "Sudah check-in" : "Belum check-in"}
+            {alreadyCheckedOutToday
+              ? "Sudah check-in & check-out"
+              : alreadyCheckedInToday
+                ? "Sudah check-in, belum check-out"
+                : "Belum check-in"}
           </p>
         </div>
-        <button
-          disabled={checkingIn || alreadyCheckedInToday}
-          onClick={checkIn}
-          className="px-5 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
-        >
-          {alreadyCheckedInToday
-            ? "Sudah Check In"
-            : checkingIn
-              ? "Memproses..."
-              : "Check In Sekarang"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            disabled={checkingIn || alreadyCheckedInToday}
+            onClick={checkIn}
+            className="px-5 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
+          >
+            {alreadyCheckedInToday
+              ? "Sudah Check In"
+              : checkingIn
+                ? "Memproses..."
+                : "Check In"}
+          </button>
+          <button
+            disabled={
+              checkingOut || !alreadyCheckedInToday || alreadyCheckedOutToday
+            }
+            onClick={checkOut}
+            className="px-5 py-2 border border-[#1B4332] text-[#1B4332] text-sm font-semibold rounded-lg hover:bg-[#D1FAE5] transition-colors disabled:opacity-50 disabled:border-[#6B7770]/30 disabled:text-[#6B7770]"
+          >
+            {alreadyCheckedOutToday
+              ? "Sudah Check Out"
+              : checkingOut
+                ? "Memproses..."
+                : "Check Out"}
+          </button>
+        </div>
       </Card>
 
       <Card>

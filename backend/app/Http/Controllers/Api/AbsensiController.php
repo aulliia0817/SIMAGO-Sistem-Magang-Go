@@ -20,7 +20,7 @@ class AbsensiController extends Controller
         $query = Absensi::with('pesertaMagang.mahasiswa.user', 'pesertaMagang.divisi');
 
         if ($user->role === 'pembimbing') {
-            $query->whereHas('pesertaMagang', fn ($q) => $q->where('pembimbing_id', $user->pembimbing?->id));
+            $query->whereHas('pesertaMagang', fn($q) => $q->where('pembimbing_id', $user->pembimbing?->id));
         }
 
         if ($belumVerifikasi = $request->boolean('belum_verifikasi')) {
@@ -49,6 +49,21 @@ class AbsensiController extends Controller
             ['tanggal' => now()->toDateString()],
             $request->validated() + ['diverifikasi' => false]
         );
+
+        return new AbsensiResource($absensi);
+    }
+
+    /** Peserta: check-out hari ini (mengisi jam_keluar pada absensi yang sudah check-in). */
+    public function checkout(Request $request)
+    {
+        $peserta = $request->user()->mahasiswa?->pesertaMagang;
+        abort_unless($peserta, 404, 'Anda belum menjadi peserta magang aktif.');
+
+        $absensi = $peserta->absensis()->whereDate('tanggal', now()->toDateString())->first();
+        abort_unless($absensi, 422, 'Anda belum check-in hari ini.');
+        abort_if($absensi->jam_keluar, 422, 'Anda sudah check-out hari ini.');
+
+        $absensi->update(['jam_keluar' => now()->format('H:i')]);
 
         return new AbsensiResource($absensi);
     }

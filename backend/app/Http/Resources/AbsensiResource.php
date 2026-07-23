@@ -15,8 +15,8 @@ class AbsensiResource extends JsonResource
             'nama' => $this->pesertaMagang->mahasiswa->user->name ?? '-',
             'divisi' => $this->pesertaMagang->divisi->nama ?? '-',
             'tanggal' => optional($this->tanggal)->format('d M Y'),
-            'jam_masuk' => $this->jam_masuk,
-            'jam_keluar' => $this->jam_keluar,
+            'jam_masuk' => $this->jam_masuk ? substr($this->jam_masuk, 0, 5) : null,
+            'jam_keluar' => $this->jam_keluar ? substr($this->jam_keluar, 0, 5) : null,
             'status' => $this->status,
             'diverifikasi' => $this->diverifikasi,
         ];
