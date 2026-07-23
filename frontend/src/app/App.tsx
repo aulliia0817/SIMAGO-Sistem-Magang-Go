@@ -323,11 +323,6 @@ function getNavItems(role: Role): NavItem[] {
       },
       { icon: <Users size={18} />, label: "Data Pendaftar", page: "pendaftar" },
       {
-        icon: <FileCheck size={18} />,
-        label: "Verifikasi Berkas",
-        page: "verifikasi",
-      },
-      {
         icon: <ClipboardList size={18} />,
         label: "Proses Seleksi",
         page: "seleksi",
@@ -1359,7 +1354,7 @@ function AdminPendaftar({
                     "Divisi",
                     "Tgl Daftar",
                     "Status",
-                    "Aksi",
+                    "Verifikasi Berkas",
                   ].map((h) => (
                     <th
                       key={h}
@@ -1399,6 +1394,7 @@ function AdminPendaftar({
                         >
                           <Eye size={14} />
                         </button>
+                        {/* <button
                         <button
                           disabled={busyId === p.id}
                           onClick={() => handleVerify(p, "disetujui")}
@@ -1415,6 +1411,7 @@ function AdminPendaftar({
                         >
                           <XCircle size={14} />
                         </button>
+                        */}
                       </div>
                     </td>
                   </tr>
