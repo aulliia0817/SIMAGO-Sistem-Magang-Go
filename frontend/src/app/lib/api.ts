@@ -34,13 +34,18 @@ api.interceptors.response.use(
       onUnauthorized?.();
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 /** Ambil pesan error yang konsisten dari response Laravel (validation / message biasa). */
-export function apiErrorMessage(error: unknown, fallback = "Terjadi kesalahan. Silakan coba lagi."): string {
+export function apiErrorMessage(
+  error: unknown,
+  fallback = "Terjadi kesalahan. Silakan coba lagi.",
+): string {
   if (axios.isAxiosError(error)) {
-    const data = error.response?.data as { message?: string; errors?: Record<string, string[]> } | undefined;
+    const data = error.response?.data as
+      | { message?: string; errors?: Record<string, string[]> }
+      | undefined;
     if (data?.errors) {
       const first = Object.values(data.errors)[0]?.[0];
       if (first) return first;
@@ -48,4 +53,17 @@ export function apiErrorMessage(error: unknown, fallback = "Terjadi kesalahan. S
     if (data?.message) return data.message;
   }
   return fallback;
+}
+
+/**
+ * Buka file (dokumen/sertifikat) di tab baru lewat request terautentikasi.
+ * Dipakai untuk endpoint seperti /dokumen/{id}/file — tidak bisa dibuka lewat
+ * <a href> biasa karena butuh header Authorization (Bearer token).
+ */
+export async function openAuthenticatedFile(path: string): Promise<void> {
+  const res = await api.get(path, { responseType: "blob" });
+  const blobUrl = URL.createObjectURL(res.data as Blob);
+  window.open(blobUrl, "_blank");
+  // Beri waktu tab baru memuat sebelum URL objek dilepas dari memori.
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
 }

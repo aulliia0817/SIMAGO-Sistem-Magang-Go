@@ -56,7 +56,12 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { api, apiErrorMessage, setOnUnauthorized } from "./lib/api";
+import {
+  api,
+  apiErrorMessage,
+  setOnUnauthorized,
+  openAuthenticatedFile,
+} from "./lib/api";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -68,6 +73,7 @@ type AdminPage =
   | "seleksi"
   | "penempatan"
   | "pembimbing-akun"
+  | "divisi"
   | "monitoring"
   | "sertifikat"
   | "laporan";
@@ -338,6 +344,11 @@ function getNavItems(role: Role): NavItem[] {
         page: "pembimbing-akun",
       },
       {
+        icon: <Briefcase size={18} />,
+        label: "Kelola Divisi",
+        page: "divisi",
+      },
+      {
         icon: <BarChart3 size={18} />,
         label: "Monitoring Kehadiran",
         page: "monitoring",
@@ -449,94 +460,88 @@ function Sidebar({
       {/* Logo */}
       <div
         className={cn(
-            "flex items-center gap-3 px-5 py-5 border-b border-white/10",
+          "flex items-center gap-3 px-5 py-5 border-b border-white/10",
+          !open && "justify-center px-0",
+        )}
+      >
+        <div className="w-9 h-9 flex items-center justify-center shrink-0">
+          <img
+            src={logoKabupatenMadiun}
+            alt="Logo Kabupaten Madiun"
+            className="w-full h-full object-contain"
+          />
+        </div>
+        {open && (
+          <div className="whitespace-nowrap">
+            <p className="font-bold text-base leading-tight">SIMAGO</p>
+            <p className="text-[10px] text-[#A8C3AD] leading-tight">
+              Sistem Magang Go
+            </p>
+            <p className="text-[10px] text-[#A8C3AD] leading-tight">
+              Dukcapil Kabupaten Madiun
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Role badge */}
+      {open && (
+        <div className="px-4 py-3">
+          <div className="bg-[#2D5A45] rounded-lg px-3 py-2 whitespace-nowrap">
+            <p className="text-[10px] text-[#A8C3AD] uppercase tracking-wider font-semibold">
+              Role
+            </p>
+            <p className="text-sm font-semibold text-white">
+              {roleLabel[role]}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4 space-y-0.5">
+        {items.map((item) => (
+          <button
+            key={item.page}
+            title={!open ? item.label : undefined}
+            onClick={() => {
+              setPage(item.page);
+              setOpen(false);
+            }}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
+              !open && "justify-center px-0",
+              page === item.page
+                ? "bg-white/15 text-white"
+                : "text-white/65 hover:bg-white/8 hover:text-white",
+            )}
+          >
+            {item.icon}
+            {open && item.label}
+          </button>
+        ))}
+      </nav>
+
+      {/* Logout */}
+      <div className="p-3 border-t border-white/10">
+        <button
+          onClick={onLogout}
+          title={!open ? "Keluar" : undefined}
+          className={cn(
+            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/65 hover:bg-white/8 hover:text-white transition-colors whitespace-nowrap",
             !open && "justify-center px-0",
           )}
         >
-          <div className="w-9 h-9 flex items-center justify-center shrink-0">
-            <img
-              src={logoKabupatenMadiun}
-              alt="Logo Kabupaten Madiun"
-              className="w-full h-full object-contain"
-            />
-          </div>
-          {open && (
-            <div className="whitespace-nowrap">
-              <p className="font-bold text-base leading-tight">SIMAGO</p>
-              <p className="text-[10px] text-[#A8C3AD] leading-tight">
-                Sistem Magang Go
-              </p>
-              <p className="text-[10px] text-[#A8C3AD] leading-tight">
-                Dukcapil Kabupaten Madiun
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Role badge */}
-        {open && (
-          <div className="px-4 py-3">
-            <div className="bg-[#2D5A45] rounded-lg px-3 py-2 whitespace-nowrap">
-              <p className="text-[10px] text-[#A8C3AD] uppercase tracking-wider font-semibold">
-                Role
-              </p>
-              <p className="text-sm font-semibold text-white">
-                {roleLabel[role]}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4 space-y-0.5">
-          {items.map((item) => (
-            <button
-              key={item.page}
-              title={!open ? item.label : undefined}
-              onClick={() => {
-                setPage(item.page);
-                setOpen(false);
-              }}
-              className={cn(
-                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
-                !open && "justify-center px-0",
-                page === item.page
-                  ? "bg-white/15 text-white"
-                  : "text-white/65 hover:bg-white/8 hover:text-white",
-              )}
-            >
-              {item.icon}
-              {open && item.label}
-            </button>
-          ))}
-        </nav>
-
-        {/* Logout */}
-        <div className="p-3 border-t border-white/10">
-          <button
-            onClick={onLogout}
-            title={!open ? "Keluar" : undefined}
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/65 hover:bg-white/8 hover:text-white transition-colors whitespace-nowrap",
-              !open && "justify-center px-0",
-            )}
-          >
-            <LogOut size={18} /> {open && "Keluar"}
-          </button>
-        </div>
+          <LogOut size={18} /> {open && "Keluar"}
+        </button>
+      </div>
     </aside>
   );
 }
 
 // ─── TopBar ───────────────────────────────────────────────────────────────────
 
-function TopBar({
-  role,
-  userName,
-}: {
-  role: Role;
-  userName: string;
-}) {
+function TopBar({ role, userName }: { role: Role; userName: string }) {
   return (
     <header className="h-14 shrink-0 bg-white border-b border-[#1B4332]/10 flex items-center px-4 gap-4">
       <div className="flex-1" />
@@ -593,11 +598,10 @@ function Layout({
         onLogout={onLogout}
       />
       <div className="ml-20 flex flex-col h-screen">
-        <TopBar
-          role={role}
-          userName={userName}
-        />
-        <main className="flex-1 min-h-0 p-5 lg:p-6 overflow-y-auto">{children}</main>
+        <TopBar role={role} userName={userName} />
+        <main className="flex-1 min-h-0 p-5 lg:p-6 overflow-y-auto">
+          {children}
+        </main>
         <footer className="shrink-0 bg-white border-t border-[#1B4332]/10 py-3 lg:py-4 overflow-hidden">
           <div className="flex w-max animate-marquee">
             {[0, 1].map((i) => (
@@ -1546,14 +1550,13 @@ function AdminVerifikasi({ pendaftaranId }: { pendaftaranId: number | null }) {
                   <StatusBadge status={doc.status} />
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {doc.file_url && (
-                      <a
-                        href={doc.file_url}
-                        target="_blank"
-                        rel="noreferrer"
+                      <button
+                        onClick={() => openAuthenticatedFile(doc.file_url!)}
                         className="p-1.5 rounded-lg hover:bg-[#D1FAE5] text-[#1B4332] transition-colors"
+                        title="Lihat file"
                       >
                         <Eye size={13} />
-                      </a>
+                      </button>
                     )}
                     {doc.status === "menunggu" && (
                       <>
@@ -2162,6 +2165,201 @@ function AdminPembimbing() {
                         </button>
                         <button
                           onClick={() => handleDelete(p)}
+                          className="p-1.5 rounded-lg hover:bg-red-100 text-red-600 transition-colors"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function AdminDivisi() {
+  const [list, setList] = useState<Divisi[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Divisi | null>(null);
+  const [form, setForm] = useState({ nama: "", kuota: "" });
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await api.get("/divisi");
+      setList(res.data.data);
+    } catch (err) {
+      setError(apiErrorMessage(err, "Gagal memuat data divisi."));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  function openAdd() {
+    setEditing(null);
+    setForm({ nama: "", kuota: "" });
+    setFormError("");
+    setFormOpen(true);
+  }
+
+  function openEdit(d: Divisi) {
+    setEditing(d);
+    setForm({ nama: d.nama, kuota: d.kuota.toString() });
+    setFormError("");
+    setFormOpen(true);
+  }
+
+  async function submitForm(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setFormError("");
+    try {
+      const payload = { nama: form.nama, kuota: Number(form.kuota) };
+      if (editing) {
+        await api.put(`/divisi/${editing.id}`, payload);
+      } else {
+        await api.post("/divisi", payload);
+      }
+      setFormOpen(false);
+      load();
+    } catch (err) {
+      setFormError(apiErrorMessage(err, "Gagal menyimpan data divisi."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(d: Divisi) {
+    if (!confirm(`Hapus divisi ${d.nama}?`)) return;
+    try {
+      await api.delete(`/divisi/${d.id}`);
+      load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Gagal menghapus divisi."));
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-xl font-bold text-[#1B4332]">Kelola Divisi</h1>
+        <button
+          onClick={openAdd}
+          className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors"
+        >
+          <Plus size={15} /> Tambah Divisi
+        </button>
+      </div>
+
+      {formOpen && (
+        <Card>
+          <h3 className="font-bold text-[#1B4332] mb-3">
+            {editing ? "Edit Divisi" : "Tambah Divisi"}
+          </h3>
+          <form
+            onSubmit={submitForm}
+            className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+          >
+            <input
+              required
+              value={form.nama}
+              onChange={(e) => setForm((f) => ({ ...f, nama: e.target.value }))}
+              placeholder="Nama Divisi"
+              className="px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+            />
+            <input
+              required
+              type="number"
+              min={0}
+              value={form.kuota}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, kuota: e.target.value }))
+              }
+              placeholder="Kuota Peserta"
+              className="px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+            />
+            {formError && (
+              <p className="sm:col-span-2 text-sm text-red-600">{formError}</p>
+            )}
+            <div className="sm:col-span-2 flex gap-2">
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
+              >
+                {saving ? "Menyimpan..." : "Simpan"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormOpen(false)}
+                className="px-4 py-2 border border-[#1B4332]/20 text-[#1B4332] text-sm font-semibold rounded-lg hover:bg-[#D1FAE5] transition-colors"
+              >
+                Batal
+              </button>
+            </div>
+          </form>
+        </Card>
+      )}
+
+      <Card>
+        {loading ? (
+          <LoadingState />
+        ) : error ? (
+          <ErrorState message={error} onRetry={load} />
+        ) : list.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[#1B4332]/10">
+                  {["Nama Divisi", "Kuota", "Sisa Kuota", "Aksi"].map((h) => (
+                    <th
+                      key={h}
+                      className="text-left py-2.5 px-3 text-[#6B7770] text-xs font-semibold uppercase tracking-wide"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {list.map((d) => (
+                  <tr
+                    key={d.id}
+                    className="border-b border-[#1B4332]/5 hover:bg-[#F1F3F1]/50 transition-colors"
+                  >
+                    <td className="py-3 px-3 font-semibold text-[#1B4332]">
+                      {d.nama}
+                    </td>
+                    <td className="py-3 px-3 text-[#6B7770]">{d.kuota}</td>
+                    <td className="py-3 px-3 font-bold text-[#1B4332]">
+                      {d.sisa_kuota}
+                    </td>
+                    <td className="py-3 px-3">
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => openEdit(d)}
+                          className="p-1.5 rounded-lg hover:bg-[#D1FAE5] text-[#1B4332] transition-colors"
+                        >
+                          <Edit2 size={13} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(d)}
                           className="p-1.5 rounded-lg hover:bg-red-100 text-red-600 transition-colors"
                         >
                           <Trash2 size={13} />
@@ -3146,8 +3344,8 @@ function UploadDokumen() {
     }
   }
 
-  const verified = docs.filter((d) => d.status === "terverifikasi").length;
-  const pct = docs.length ? Math.round((verified / docs.length) * 100) : 0;
+  const uploadedCount = docs.filter((d) => !!d.file_url).length;
+  const pct = docs.length ? Math.round((uploadedCount / docs.length) * 100) : 0;
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} onRetry={load} />;
@@ -3167,7 +3365,7 @@ function UploadDokumen() {
       <Card>
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-semibold text-[#3D4442]">
-            Total Kelengkapan: {verified} dari {docs.length} dokumen
+            Total Kelengkapan: {uploadedCount} dari {docs.length} dokumen
           </span>
           <span className="text-sm font-bold text-[#1B4332]">{pct}%</span>
         </div>
@@ -3230,15 +3428,27 @@ function UploadDokumen() {
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <StatusBadge status={doc.status} />
-                    {(doc.status === "belum-upload" ||
-                      doc.status === "ditolak") && (
+                    {doc.file_url && (
+                      <button
+                        onClick={() => openAuthenticatedFile(doc.file_url!)}
+                        className="p-1.5 rounded-lg hover:bg-[#D1FAE5] text-[#1B4332] transition-colors"
+                        title="Lihat file"
+                      >
+                        <Eye size={14} />
+                      </button>
+                    )}
+                    {doc.status !== "terverifikasi" && (
                       <button
                         disabled={uploadingId === doc.id}
                         onClick={() => triggerUpload(doc.id)}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1B4332] text-white text-xs font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
                       >
                         <Upload size={12} />{" "}
-                        {uploadingId === doc.id ? "Mengunggah..." : "Upload"}
+                        {uploadingId === doc.id
+                          ? "Mengunggah..."
+                          : doc.file_url
+                            ? "Kirim Ulang"
+                            : "Upload"}
                       </button>
                     )}
                   </div>
@@ -3794,14 +4004,12 @@ function PesertaSertifikat() {
               : "Sertifikat kamu sedang diproses oleh admin."}
         </p>
         {isTerbit && s?.file_url && (
-          <a
-            href={s.file_url}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            onClick={() => openAuthenticatedFile(s.file_url!)}
             className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors"
           >
             <Download size={14} /> Unduh Sertifikat
-          </a>
+          </button>
         )}
         {peserta && (
           <div className="mt-5 p-4 rounded-xl bg-[#F1F3F1] text-left max-w-xs mx-auto">
@@ -4566,6 +4774,8 @@ export default function App() {
           return <AdminPenempatan />;
         case "pembimbing-akun":
           return <AdminPembimbing />;
+        case "divisi":
+          return <AdminDivisi />;
         case "monitoring":
           return <AdminMonitoring />;
         case "sertifikat":
