@@ -76,7 +76,8 @@ type AdminPage =
   | "divisi"
   | "monitoring"
   | "sertifikat"
-  | "laporan";
+  | "laporan"
+  | "profil";
 type CalonPage =
   | "dashboard"
   | "pendaftaran"
@@ -92,7 +93,8 @@ type PembimbingPage =
   | "dashboard"
   | "absensi-verify"
   | "review-laporan"
-  | "rekomendasi";
+  | "rekomendasi"
+  | "profil";
 type Page = AdminPage | CalonPage | PesertaPage | PembimbingPage;
 
 // ─── API Data Types ─────────────────────────────────────────────────────────
@@ -541,7 +543,15 @@ function Sidebar({
 
 // ─── TopBar ───────────────────────────────────────────────────────────────────
 
-function TopBar({ role, userName }: { role: Role; userName: string }) {
+function TopBar({
+  role,
+  userName,
+  setPage,
+}: {
+  role: Role;
+  userName: string;
+  setPage: (p: Page) => void;
+}) {
   return (
     <header className="h-14 shrink-0 bg-white border-b border-[#1B4332]/10 flex items-center px-4 gap-4">
       <div className="flex-1" />
@@ -551,7 +561,10 @@ function TopBar({ role, userName }: { role: Role; userName: string }) {
           3
         </span>
       </button>
-      <div className="flex items-center gap-2 pl-3 border-l border-[#1B4332]/10">
+      <div
+        onClick={() => setPage("profil" as Page)}
+        className="flex items-center gap-2 pl-3 border-l border-[#1B4332]/10 cursor-pointer hover:opacity-75 transition-opacity"
+      >
         <div className="w-8 h-8 rounded-full bg-[#1B4332] flex items-center justify-center text-white text-xs font-bold">
           {userName.charAt(0)}
         </div>
@@ -598,7 +611,7 @@ function Layout({
         onLogout={onLogout}
       />
       <div className="ml-20 flex flex-col h-screen">
-        <TopBar role={role} userName={userName} />
+        <TopBar role={role} userName={userName} setPage={setPage} />
         <main className="flex-1 min-h-0 p-5 lg:p-6 overflow-y-auto">
           {children}
         </main>
@@ -2370,6 +2383,132 @@ function AdminDivisi() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function AdminProfil() {
+  const [profil, setProfil] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [nama, setNama] = useState("");
+  const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const { data } = await api.get("/profil");
+      setProfil(data);
+      setNama(data.nama ?? "");
+    } catch (err) {
+      setError(apiErrorMessage(err, "Gagal memuat profil."));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function saveProfil() {
+    setSaving(true);
+    setSaveError("");
+    try {
+      const payload: Record<string, string> = { nama };
+      if (password) payload.password = password;
+      await api.put("/profil", payload);
+      setEditing(false);
+      setPassword("");
+      load();
+    } catch (err) {
+      setSaveError(apiErrorMessage(err, "Gagal menyimpan profil."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <LoadingState />;
+  if (error) return <ErrorState message={error} onRetry={load} />;
+  if (!profil) return null;
+
+  return (
+    <div className="space-y-5 max-w-xl mx-auto">
+      <h1 className="text-xl font-bold text-[#1B4332]">Profil Saya</h1>
+      <Card>
+        <div className="flex items-center gap-4 mb-5">
+          <div className="w-16 h-16 rounded-2xl bg-[#1B4332] flex items-center justify-center text-white text-2xl font-bold">
+            {profil.nama.charAt(0)}
+          </div>
+          <div>
+            <p className="font-bold text-[#1B4332] text-lg">{profil.nama}</p>
+            <p className="text-sm text-[#6B7770]">{profil.email}</p>
+          </div>
+          <button
+            onClick={() => setEditing((e) => !e)}
+            className="ml-auto flex items-center gap-2 px-3 py-1.5 border border-[#1B4332]/20 text-[#1B4332] text-sm font-semibold rounded-lg hover:bg-[#D1FAE5] transition-colors"
+          >
+            <Edit2 size={13} /> {editing ? "Batal" : "Edit"}
+          </button>
+        </div>
+
+        {editing ? (
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
+                Nama
+              </label>
+              <input
+                value={nama}
+                onChange={(e) => setNama(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
+                Password Baru (kosongkan jika tidak diubah)
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+              />
+            </div>
+            {saveError && <p className="text-sm text-red-600">{saveError}</p>}
+            <button
+              disabled={saving}
+              onClick={saveProfil}
+              className="px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
+            >
+              {saving ? "Menyimpan..." : "Simpan Perubahan"}
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {(
+              [
+                ["Nama", profil.nama],
+                ["Email", profil.email],
+                ["Role", "Administrator"],
+              ] as [string, string][]
+            ).map(([k, v]) => (
+              <div key={k} className="p-3 rounded-xl bg-[#F1F3F1]">
+                <p className="text-[10px] font-semibold text-[#6B7770] uppercase tracking-wide">
+                  {k}
+                </p>
+                <p className="text-sm font-semibold text-[#3D4442] mt-0.5">
+                  {v}
+                </p>
+              </div>
+            ))}
           </div>
         )}
       </Card>
@@ -4695,6 +4834,134 @@ function Rekomendasi() {
 
 // ─── App Root ─────────────────────────────────────────────────────────────────
 
+function PembimbingProfil() {
+  const [profil, setProfil] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [nama, setNama] = useState("");
+  const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const { data } = await api.get("/profil");
+      setProfil(data);
+      setNama(data.nama ?? "");
+    } catch (err) {
+      setError(apiErrorMessage(err, "Gagal memuat profil."));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function saveProfil() {
+    setSaving(true);
+    setSaveError("");
+    try {
+      const payload: Record<string, string> = { nama };
+      if (password) payload.password = password;
+      await api.put("/profil", payload);
+      setEditing(false);
+      setPassword("");
+      load();
+    } catch (err) {
+      setSaveError(apiErrorMessage(err, "Gagal menyimpan profil."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <LoadingState />;
+  if (error) return <ErrorState message={error} onRetry={load} />;
+  if (!profil) return null;
+
+  const fields: [string, string][] = [
+    ["Nama", profil.nama],
+    ["Email", profil.email],
+    ["NIP", profil.pembimbing?.nip ?? "-"],
+    ["Divisi", profil.pembimbing?.divisi?.nama ?? "-"],
+    ["Status", profil.pembimbing?.status === "aktif" ? "Aktif" : "Nonaktif"],
+  ];
+
+  return (
+    <div className="space-y-5 max-w-xl mx-auto">
+      <h1 className="text-xl font-bold text-[#1B4332]">Profil Saya</h1>
+      <Card>
+        <div className="flex items-center gap-4 mb-5">
+          <div className="w-16 h-16 rounded-2xl bg-[#1B4332] flex items-center justify-center text-white text-2xl font-bold">
+            {profil.nama.charAt(0)}
+          </div>
+          <div>
+            <p className="font-bold text-[#1B4332] text-lg">{profil.nama}</p>
+            <p className="text-sm text-[#6B7770]">{profil.email}</p>
+          </div>
+          <button
+            onClick={() => setEditing((e) => !e)}
+            className="ml-auto flex items-center gap-2 px-3 py-1.5 border border-[#1B4332]/20 text-[#1B4332] text-sm font-semibold rounded-lg hover:bg-[#D1FAE5] transition-colors"
+          >
+            <Edit2 size={13} /> {editing ? "Batal" : "Edit"}
+          </button>
+        </div>
+
+        {editing ? (
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
+                Nama
+              </label>
+              <input
+                value={nama}
+                onChange={(e) => setNama(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
+                Password Baru (kosongkan jika tidak diubah)
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+              />
+            </div>
+            {saveError && <p className="text-sm text-red-600">{saveError}</p>}
+            <button
+              disabled={saving}
+              onClick={saveProfil}
+              className="px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
+            >
+              {saving ? "Menyimpan..." : "Simpan Perubahan"}
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {fields.map(([k, v]) => (
+              <div key={k} className="p-3 rounded-xl bg-[#F1F3F1]">
+                <p className="text-[10px] font-semibold text-[#6B7770] uppercase tracking-wide">
+                  {k}
+                </p>
+                <p className="text-sm font-semibold text-[#3D4442] mt-0.5">
+                  {v}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -4782,6 +5049,8 @@ export default function App() {
           return <AdminSertifikat />;
         case "laporan":
           return <AdminLaporan />;
+        case "profil":
+          return <AdminProfil />;
       }
     }
 
@@ -4796,6 +5065,8 @@ export default function App() {
           return <ReviewLaporan />;
         case "rekomendasi":
           return <Rekomendasi />;
+        case "profil":
+          return <PembimbingProfil />;
       }
     }
 
