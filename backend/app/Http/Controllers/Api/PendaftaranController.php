@@ -82,7 +82,8 @@ class PendaftaranController extends Controller
         Notifikasi::kirimKeRole(
             'admin',
             'Pendaftaran Baru Telah Diterima',
-            "{$user->name} mengajukan pendaftaran magang untuk divisi {$pendaftaran->divisi->nama}."
+            "{$user->name} mengajukan pendaftaran magang untuk divisi {$pendaftaran->divisi->nama}.",
+            halaman: 'pendaftar'
         );
 
         return new PendaftaranResource($pendaftaran->load(['mahasiswa.user', 'divisi', 'dokumens']));
@@ -136,7 +137,8 @@ class PendaftaranController extends Controller
                 'Hasil Seleksi Pendaftaran',
                 $data['status'] === 'disetujui'
                 ? "Selamat! Pendaftaran magang Anda di divisi {$pendaftaran->divisi->nama} telah DITERIMA."
-                : 'Mohon maaf, pendaftaran magang Anda tidak lolos seleksi kali ini.'
+                : 'Mohon maaf, pendaftaran magang Anda tidak lolos seleksi kali ini.',
+                halaman: 'tracking'
             );
         }
 

@@ -28,6 +28,9 @@ class ProfilController extends Controller
         $data = $request->validate([
             'nama' => ['sometimes', 'required', 'string', 'max:150'],
             'no_hp' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'institusi' => ['sometimes', 'nullable', 'string', 'max:150'],
+            'jurusan' => ['sometimes', 'nullable', 'string', 'max:150'],
+            'semester' => ['sometimes', 'nullable', 'string', 'max:10'],
             'password' => ['sometimes', 'nullable', 'string', 'min:6'],
         ]);
 
@@ -35,12 +38,18 @@ class ProfilController extends Controller
             $user->update(['name' => $data['nama']]);
         }
 
-        if (! empty($data['password'])) {
+        if (!empty($data['password'])) {
             $user->update(['password' => Hash::make($data['password'])]);
         }
 
-        if (isset($data['no_hp']) && $user->mahasiswa) {
-            $user->mahasiswa->update(['no_hp' => $data['no_hp']]);
+        if ($user->mahasiswa) {
+            $mahasiswaData = collect($data)
+                ->only(['no_hp', 'institusi', 'jurusan', 'semester'])
+                ->toArray();
+
+            if (!empty($mahasiswaData)) {
+                $user->mahasiswa->update($mahasiswaData);
+            }
         }
 
         return response()->json(['message' => 'Profil berhasil diperbarui.']);

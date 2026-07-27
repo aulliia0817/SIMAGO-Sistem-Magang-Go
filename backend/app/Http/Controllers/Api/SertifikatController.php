@@ -60,7 +60,8 @@ class SertifikatController extends Controller
             Notifikasi::kirim(
                 $sertifikat->pesertaMagang->mahasiswa->user,
                 'Sertifikat Magang Sudah Dapat Diunduh',
-                'Selamat! Program magang Anda telah selesai dan sertifikat sudah dapat diunduh.'
+                'Selamat! Program magang Anda telah selesai dan sertifikat sudah dapat diunduh.',
+                halaman: 'sertifikat-peserta'
             );
         }
 

@@ -4834,8 +4834,16 @@ function PesertaProfil() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
-  const [noHp, setNoHp] = useState("");
+  const [form, setForm] = useState({
+    nama: "",
+    institusi: "",
+    jurusan: "",
+    semester: "",
+    noHp: "",
+    password: "",
+  });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -4843,7 +4851,14 @@ function PesertaProfil() {
     try {
       const { data } = await api.get("/profil");
       setProfil(data);
-      setNoHp(data.mahasiswa?.no_hp ?? "");
+      setForm({
+        nama: data.nama ?? "",
+        institusi: data.mahasiswa?.institusi ?? "",
+        jurusan: data.mahasiswa?.jurusan ?? "",
+        semester: data.mahasiswa?.semester ?? "",
+        noHp: data.mahasiswa?.no_hp ?? "",
+        password: "",
+      });
       if (data.role === "peserta") {
         try {
           const p = await api.get("/peserta/saya");
@@ -4865,12 +4880,22 @@ function PesertaProfil() {
 
   async function saveProfil() {
     setSaving(true);
+    setSaveError("");
     try {
-      await api.put("/profil", { no_hp: noHp });
+      const payload: Record<string, string> = {
+        nama: form.nama,
+        institusi: form.institusi,
+        jurusan: form.jurusan,
+        semester: form.semester,
+        no_hp: form.noHp,
+      };
+      if (form.password) payload.password = form.password;
+      await api.put("/profil", payload);
       setEditing(false);
+      setForm((f) => ({ ...f, password: "" }));
       load();
     } catch (err) {
-      alert(apiErrorMessage(err, "Gagal menyimpan profil."));
+      setSaveError(apiErrorMessage(err, "Gagal menyimpan profil."));
     } finally {
       setSaving(false);
     }
@@ -4919,14 +4944,80 @@ function PesertaProfil() {
           <div className="space-y-3">
             <div>
               <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
-                No. HP (WhatsApp)
+                Nama
               </label>
               <input
-                value={noHp}
-                onChange={(e) => setNoHp(e.target.value)}
+                value={form.nama}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, nama: e.target.value }))
+                }
                 className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
               />
             </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
+                  Kampus
+                </label>
+                <input
+                  value={form.institusi}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, institusi: e.target.value }))
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
+                  Jurusan
+                </label>
+                <input
+                  value={form.jurusan}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, jurusan: e.target.value }))
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
+                  Semester
+                </label>
+                <input
+                  value={form.semester}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, semester: e.target.value }))
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
+                  No. HP (WhatsApp)
+                </label>
+                <input
+                  value={form.noHp}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, noHp: e.target.value }))
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
+                Password Baru (kosongkan jika tidak diubah)
+              </label>
+              <input
+                type="password"
+                value={form.password}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, password: e.target.value }))
+                }
+                className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+              />
+            </div>
+            {saveError && <p className="text-sm text-red-600">{saveError}</p>}
             <button
               disabled={saving}
               onClick={saveProfil}

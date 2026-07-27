@@ -41,7 +41,8 @@ class DokumenController extends Controller
         Notifikasi::kirimKeRole(
             'admin',
             'Calon Peserta Memperbarui Data Pendaftaran',
-            "{$request->user()->name} mengunggah/memperbarui dokumen \"{$dokumen->jenis}\"."
+            "{$request->user()->name} mengunggah/memperbarui dokumen \"{$dokumen->jenis}\".",
+            halaman: 'verifikasi'
         );
 
         return new DokumenResource($dokumen);

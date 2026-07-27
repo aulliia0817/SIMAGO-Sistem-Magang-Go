@@ -49,7 +49,8 @@ class LaporanHarianController extends Controller
             Notifikasi::kirim(
                 $peserta->pembimbing->user,
                 'Laporan Harian Baru Menunggu Review',
-                "{$peserta->mahasiswa->user->name} mengirim laporan \"{$laporan->judul}\" untuk direview."
+                "{$peserta->mahasiswa->user->name} mengirim laporan \"{$laporan->judul}\" untuk direview.",
+                halaman: 'review-laporan'
             );
         }
 
@@ -70,9 +71,9 @@ class LaporanHarianController extends Controller
         $penerima = $laporanHarian->pesertaMagang->mahasiswa->user;
         $data = $request->validated();
         if ($data['status'] === 'perlu-revisi') {
-            Notifikasi::kirim($penerima, 'Laporan Perlu Direvisi', "Laporan \"{$laporanHarian->judul}\" perlu direvisi. " . ($data['catatan_pembimbing'] ?? ''));
+            Notifikasi::kirim($penerima, 'Laporan Perlu Direvisi', "Laporan \"{$laporanHarian->judul}\" perlu direvisi. " . ($data['catatan_pembimbing'] ?? ''), halaman: 'laporan-peserta');
         } elseif (!empty($data['catatan_pembimbing'])) {
-            Notifikasi::kirim($penerima, 'Pembimbing Memberikan Komentar', "Komentar untuk laporan \"{$laporanHarian->judul}\": {$data['catatan_pembimbing']}");
+            Notifikasi::kirim($penerima, 'Pembimbing Memberikan Komentar', "Komentar untuk laporan \"{$laporanHarian->judul}\": {$data['catatan_pembimbing']}", halaman: 'laporan-peserta');
         }
 
         return new LaporanHarianResource($laporanHarian);
@@ -100,7 +101,8 @@ class LaporanHarianController extends Controller
             Notifikasi::kirim(
                 $peserta->pembimbing->user,
                 'Peserta Merevisi Laporan',
-                "{$peserta->mahasiswa->user->name} mengirim revisi untuk laporan \"{$laporanHarian->judul}\"."
+                "{$peserta->mahasiswa->user->name} mengirim revisi untuk laporan \"{$laporanHarian->judul}\".",
+                halaman: 'review-laporan'
             );
         }
 
