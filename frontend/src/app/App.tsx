@@ -101,6 +101,15 @@ type Page = AdminPage | CalonPage | PesertaPage | PembimbingPage;
 // Seluruh data di bawah ini sekarang datang dari Laravel API (bukan mock lagi).
 // Bentuk (shape) tiap tipe mengikuti App\Http\Resources\* di backend.
 
+type NotifikasiItem = {
+  id: number;
+  judul: string;
+  pesan: string;
+  halaman: string | null;
+  dibaca: boolean;
+  waktu: string;
+  tanggal: string;
+};
 type Divisi = { id: number; nama: string; kuota: number; sisa_kuota: number };
 type PendaftarItem = {
   id: number;
@@ -548,6 +557,181 @@ function Sidebar({
 
 // ─── TopBar ───────────────────────────────────────────────────────────────────
 
+function NotificationBell({
+  onNavigate,
+}: {
+  onNavigate: (page: Page) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [items, setItems] = useState<NotifikasiItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get("/notifikasi");
+      setItems(data.data);
+      setUnreadCount(data.unread_count);
+    } catch {
+      // gagal diam-diam — notifikasi bukan fitur kritis, jangan ganggu halaman lain
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 60_000); // polling ringan setiap 1 menit
+    return () => clearInterval(interval);
+  }, [load]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node))
+        setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  async function markRead(id: number) {
+    setItems((list) =>
+      list.map((n) => (n.id === id ? { ...n, dibaca: true } : n)),
+    );
+    setUnreadCount((c) => Math.max(0, c - 1));
+    try {
+      await api.put(`/notifikasi/${id}/baca`);
+    } catch {
+      load(); // kalau gagal, sinkronkan ulang dari server
+    }
+  }
+
+  async function markAllRead() {
+    setItems((list) => list.map((n) => ({ ...n, dibaca: true })));
+    setUnreadCount(0);
+    try {
+      await api.put("/notifikasi/baca-semua");
+    } catch {
+      load();
+    }
+  }
+
+  async function deleteNotif(e: React.MouseEvent, n: NotifikasiItem) {
+    e.stopPropagation(); // jangan ikut memicu klik/navigasi kartu notifikasi
+    setDeletingId(n.id);
+    setItems((list) => list.filter((x) => x.id !== n.id));
+    if (!n.dibaca) setUnreadCount((c) => Math.max(0, c - 1));
+    try {
+      await api.delete(`/notifikasi/${n.id}`);
+    } catch {
+      load(); // gagal hapus di server → sinkronkan ulang supaya tidak "hilang" palsu
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  function handleClickItem(n: NotifikasiItem) {
+    if (!n.dibaca) markRead(n.id);
+    if (n.halaman) {
+      onNavigate(n.halaman as Page);
+      setOpen(false);
+    }
+  }
+
+  return (
+    <div className="relative" ref={wrapRef}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="relative text-[#6B7770] hover:text-[#1B4332] transition-colors"
+      >
+        <Bell size={20} />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-[#1B4332] rounded-full text-[9px] text-white flex items-center justify-center font-bold">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-80 max-w-[90vw] bg-white rounded-xl shadow-lg border border-[#1B4332]/10 z-50 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#1B4332]/10">
+            <p className="font-bold text-[#1B4332] text-sm">Notifikasi</p>
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllRead}
+                className="text-xs font-semibold text-[#1B4332] hover:underline flex items-center gap-1"
+              >
+                <CheckCircle size={12} /> Tandai semua dibaca
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-96 overflow-y-auto">
+            {loading && items.length === 0 ? (
+              <div className="py-8">
+                <LoadingState label="Memuat notifikasi..." />
+              </div>
+            ) : items.length === 0 ? (
+              <div className="py-8">
+                <EmptyState label="Belum ada notifikasi." />
+              </div>
+            ) : (
+              items.map((n) => (
+                <div
+                  key={n.id}
+                  onClick={() => handleClickItem(n)}
+                  role="button"
+                  tabIndex={0}
+                  className={cn(
+                    "w-full text-left px-4 py-3 border-b border-[#1B4332]/5 hover:bg-[#F1F3F1] transition-colors flex gap-2.5 cursor-pointer group",
+                    !n.dibaca && "bg-[#D1FAE5]/30",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "w-2 h-2 rounded-full mt-1.5 flex-shrink-0",
+                      !n.dibaca ? "bg-[#1B4332]" : "bg-transparent",
+                    )}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className={cn(
+                        "text-sm leading-tight",
+                        !n.dibaca
+                          ? "font-bold text-[#1B4332]"
+                          : "font-semibold text-[#3D4442]",
+                      )}
+                    >
+                      {n.judul}
+                    </p>
+                    <p className="text-xs text-[#6B7770] mt-0.5 leading-snug">
+                      {n.pesan}
+                    </p>
+                    <p className="text-[11px] text-[#6B7770]/70 mt-1">
+                      {n.waktu}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => deleteNotif(e, n)}
+                    disabled={deletingId === n.id}
+                    title="Hapus notifikasi"
+                    className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[#6B7770]/50 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all disabled:opacity-50"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TopBar({
   role,
   userName,
@@ -560,12 +744,7 @@ function TopBar({
   return (
     <header className="h-14 shrink-0 bg-white border-b border-[#1B4332]/10 flex items-center px-4 gap-4">
       <div className="flex-1" />
-      <button className="relative text-[#6B7770] hover:text-[#1B4332] transition-colors">
-        <Bell size={20} />
-        <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#1B4332] rounded-full text-[9px] text-white flex items-center justify-center font-bold">
-          3
-        </span>
-      </button>
+      <NotificationBell onNavigate={setPage} />
       <div
         onClick={() => setPage("profil" as Page)}
         className="flex items-center gap-2 pl-3 border-l border-[#1B4332]/10 cursor-pointer hover:opacity-75 transition-opacity"
@@ -3775,7 +3954,15 @@ const SIFT_OPTIONS: { value: string; label: string }[] = [
 ];
 
 function todayHariIndonesia() {
-  const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jum'at", "Sabtu"];
+  const days = [
+    "Minggu",
+    "Senin",
+    "Selasa",
+    "Rabu",
+    "Kamis",
+    "Jum'at",
+    "Sabtu",
+  ];
   return days[new Date().getDay()];
 }
 
@@ -3791,7 +3978,10 @@ function AturanAbsensi() {
   return (
     <Card className="border-amber-200 bg-amber-50">
       <div className="flex items-start gap-3">
-        <AlertCircle size={18} className="text-amber-700 flex-shrink-0 mt-0.5" />
+        <AlertCircle
+          size={18}
+          className="text-amber-700 flex-shrink-0 mt-0.5"
+        />
         <div className="space-y-4 text-sm text-amber-900">
           <div>
             <p className="font-bold text-amber-900 uppercase tracking-wide text-xs mb-1">
@@ -3839,8 +4029,8 @@ function AturanAbsensi() {
             <p>
               Digunakan saat masuk tetapi pengisian absen di luar jam Datang
               atau Pulang. Gunakan bukti foto yang sudah diaktifkan fitur{" "}
-              <strong>timestamp</strong>. Jika tidak sesuai, akan dianggap
-              tidak masuk.
+              <strong>timestamp</strong>. Jika tidak sesuai, akan dianggap tidak
+              masuk.
             </p>
           </div>
 
@@ -3866,14 +4056,13 @@ function AturanAbsensi() {
               <li>Hari — Senin, Selasa, Rabu, Kamis, Jum'at</li>
               <li>Sift — Datang, Pulang, Izin, Sakit, Lupa Absen</li>
               <li>
-                Keterangan — wajib diisi jika Izin, Sakit, atau Lupa Absen.
-                Jika tidak diisi, dianggap tidak masuk.
+                Keterangan — wajib diisi jika Izin, Sakit, atau Lupa Absen. Jika
+                tidak diisi, dianggap tidak masuk.
               </li>
               <li>
-                Dokumen pendukung — wajib diunggah jika Izin, Sakit, atau
-                Lupa Absen (PDF, gambar, atau video). Untuk gambar/video
-                wajib merekam lokasi/GPS. Jika tidak diisi, dianggap tidak
-                masuk.
+                Dokumen pendukung — wajib diunggah jika Izin, Sakit, atau Lupa
+                Absen (PDF, gambar, atau video). Untuk gambar/video wajib
+                merekam lokasi/GPS. Jika tidak diisi, dianggap tidak masuk.
               </li>
             </ul>
           </div>
@@ -3936,8 +4125,10 @@ function PesertaAbsensi() {
   const sudahDatang = !!todayEntry?.jam_masuk;
   const sudahPulang = !!todayEntry?.jam_keluar;
 
-  const perluBukti = sift === "izin" || sift === "sakit" || sift === "lupa_absen";
-  const diLuarJam = (sift === "datang" || sift === "pulang") && !siftDalamJam(sift);
+  const perluBukti =
+    sift === "izin" || sift === "sakit" || sift === "lupa_absen";
+  const diLuarJam =
+    (sift === "datang" || sift === "pulang") && !siftDalamJam(sift);
 
   function alreadyDoneToday(s: string) {
     if (!todayEntry) return false;
@@ -4082,9 +4273,7 @@ function PesertaAbsensi() {
       {showForm && (
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-[#1B4332]">
-              Form Pengisian Absensi
-            </h3>
+            <h3 className="font-bold text-[#1B4332]">Form Pengisian Absensi</h3>
             <button
               onClick={() => setShowForm(false)}
               className="text-[#6B7770] hover:text-[#1B4332] transition-colors"
@@ -4318,6 +4507,11 @@ function PesertaLaporan() {
     isi: "",
   });
 
+  const [revisingId, setRevisingId] = useState<number | null>(null);
+  const [revisiIsi, setRevisiIsi] = useState("");
+  const [revisiSubmitting, setRevisiSubmitting] = useState(false);
+  const [revisiError, setRevisiError] = useState("");
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -4352,6 +4546,26 @@ function PesertaLaporan() {
       setFormError(apiErrorMessage(err, "Gagal menyimpan laporan."));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function startRevisi(l: LaporanItem) {
+    setRevisingId(l.id);
+    setRevisiIsi(l.isi);
+    setRevisiError("");
+  }
+
+  async function submitRevisi(id: number) {
+    setRevisiSubmitting(true);
+    setRevisiError("");
+    try {
+      await api.put(`/laporan/${id}/revisi`, { isi: revisiIsi });
+      setRevisingId(null);
+      load();
+    } catch (err) {
+      setRevisiError(apiErrorMessage(err, "Gagal mengirim revisi."));
+    } finally {
+      setRevisiSubmitting(false);
     }
   }
 
@@ -4461,6 +4675,48 @@ function PesertaLaporan() {
                       Feedback:{" "}
                     </span>
                     {l.catatan_pembimbing}
+                  </div>
+                )}
+
+                {l.status === "perlu-revisi" && revisingId !== l.id && (
+                  <button
+                    onClick={() => startRevisi(l)}
+                    className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-[#1B4332] text-white text-xs font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors"
+                  >
+                    <Edit2 size={12} /> Kirim Revisi
+                  </button>
+                )}
+
+                {revisingId === l.id && (
+                  <div className="mt-3 space-y-2">
+                    <textarea
+                      rows={4}
+                      value={revisiIsi}
+                      onChange={(e) => setRevisiIsi(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20 resize-none"
+                    />
+                    {revisiError && (
+                      <div className="flex items-center gap-2 p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs">
+                        <AlertCircle size={13} /> {revisiError}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        disabled={revisiSubmitting}
+                        onClick={() => submitRevisi(l.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B4332] text-white text-xs font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
+                      >
+                        <Send size={12} />{" "}
+                        {revisiSubmitting ? "Mengirim..." : "Kirim Revisi"}
+                      </button>
+                      <button
+                        disabled={revisiSubmitting}
+                        onClick={() => setRevisingId(null)}
+                        className="px-3 py-1.5 border border-[#1B4332]/20 text-[#1B4332] text-xs font-semibold rounded-lg hover:bg-[#F1F3F1] transition-colors"
+                      >
+                        Batal
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
