@@ -12,11 +12,16 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
-        'name', 'email', 'password', 'role', 'is_active',
+        'name',
+        'email',
+        'password',
+        'role',
+        'is_active',
     ];
 
     protected $hidden = [
-        'password', 'remember_token',
+        'password',
+        'remember_token',
     ];
 
     protected function casts(): array
@@ -36,5 +41,10 @@ class User extends Authenticatable
     public function pembimbing()
     {
         return $this->hasOne(Pembimbing::class);
+    }
+
+    public function notifikasis()
+    {
+        return $this->hasMany(Notifikasi::class);
     }
 }

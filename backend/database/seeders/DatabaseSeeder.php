@@ -28,7 +28,7 @@ class DatabaseSeeder extends Seeder
             'Administrasi' => 6,
             'IT' => 5,
             'Keuangan' => 4,
-        ])->map(fn ($kuota, $nama) => Divisi::create(['nama' => $nama, 'kuota' => $kuota]));
+        ])->map(fn($kuota, $nama) => Divisi::create(['nama' => $nama, 'kuota' => $kuota]));
 
         // ── Admin ────────────────────────────────────────────────────────
         User::create([
@@ -175,13 +175,13 @@ class DatabaseSeeder extends Seeder
         foreach ($lainnya as $idx => $p) {
             $user = User::create([
                 'name' => $p['nama'],
-                'email' => strtolower(str_replace(' ', '.', $p['nama'])).'@mail.test',
+                'email' => strtolower(str_replace(' ', '.', $p['nama'])) . '@mail.test',
                 'password' => Hash::make('password'),
                 'role' => 'calon',
             ]);
             $mhs = Mahasiswa::create([
                 'user_id' => $user->id,
-                'nim' => '2151504'.str_pad((string) ($idx + 20), 5, '0', STR_PAD_LEFT),
+                'nim' => '2151504' . str_pad((string) ($idx + 20), 5, '0', STR_PAD_LEFT),
                 'institusi' => $p['institusi'],
                 'jurusan' => $p['jurusan'],
             ]);

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DivisiController;
 use App\Http\Controllers\Api\DokumenController;
 use App\Http\Controllers\Api\LaporanHarianController;
+use App\Http\Controllers\Api\NotifikasiController;
 use App\Http\Controllers\Api\PembimbingController;
 use App\Http\Controllers\Api\PendaftaranController;
 use App\Http\Controllers\Api\PengaturanController;
@@ -37,6 +38,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Lihat/unduh file — otorisasi (admin/pembimbing atau pemilik) dicek di controller
     Route::get('/dokumen/{dokumen}/file', [DokumenController::class, 'file']);
     Route::get('/sertifikat/{sertifikat}/file', [SertifikatController::class, 'file']);
+
+    Route::get('/notifikasi', [NotifikasiController::class, 'index']);
+    Route::put('/notifikasi/{notifikasi}/baca', [NotifikasiController::class, 'markRead']);
+    Route::put('/notifikasi/baca-semua', [NotifikasiController::class, 'markAllRead']);
+    Route::delete('/notifikasi/{notifikasi}', [NotifikasiController::class, 'destroy']);
 
     // ── Calon Magang ──────────────────────────────────────────────────────
     Route::middleware('role:calon,peserta')->group(function () {

@@ -7,6 +7,7 @@ use App\Http\Requests\StorePendaftaranRequest;
 use App\Http\Requests\UpdatePendaftaranStatusRequest;
 use App\Http\Resources\PendaftaranResource;
 use App\Models\Mahasiswa;
+use App\Models\Notifikasi;
 use App\Models\Pendaftaran;
 use App\Models\Pengaturan;
 use App\Models\PesertaMagang;
@@ -22,7 +23,7 @@ class PendaftaranController extends Controller
         $query = Pendaftaran::with(['mahasiswa.user', 'divisi', 'pesertaMagang']);
 
         if ($search = $request->query('search')) {
-            $query->whereHas('mahasiswa.user', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+            $query->whereHas('mahasiswa.user', fn($q) => $q->where('name', 'like', "%{$search}%"));
         }
 
         if ($status = $request->query('status')) {
@@ -78,6 +79,12 @@ class PendaftaranController extends Controller
             $pendaftaran->dokumens()->create(['jenis' => $jenis, 'status' => 'belum-upload']);
         }
 
+        Notifikasi::kirimKeRole(
+            'admin',
+            'Pendaftaran Baru Telah Diterima',
+            "{$user->name} mengajukan pendaftaran magang untuk divisi {$pendaftaran->divisi->nama}."
+        );
+
         return new PendaftaranResource($pendaftaran->load(['mahasiswa.user', 'divisi', 'dokumens']));
     }
 
@@ -86,7 +93,7 @@ class PendaftaranController extends Controller
     {
         $pendaftaran = $request->user()->mahasiswa?->pendaftarans()->with(['divisi', 'dokumens'])->latest()->first();
 
-        if (! $pendaftaran) {
+        if (!$pendaftaran) {
             return response()->json(['message' => 'Belum ada pendaftaran.'], 404);
         }
 
@@ -107,10 +114,7 @@ class PendaftaranController extends Controller
                 'catatan_admin' => $data['catatan_admin'] ?? $pendaftaran->catatan_admin,
             ]);
 
-            if ($data['status'] === 'disetujui' && ! $pendaftaran->pesertaMagang) {
-                // Seleksi hanya meloloskan pendaftar (tidak ada form tambahan
-                // di halaman ini). Pembimbing final ditentukan admin berikutnya
-                // di halaman Penempatan Peserta.
+            if ($data['status'] === 'disetujui' && !$pendaftaran->pesertaMagang) {
                 PesertaMagang::create([
                     'pendaftaran_id' => $pendaftaran->id,
                     'mahasiswa_id' => $pendaftaran->mahasiswa_id,
@@ -125,7 +129,18 @@ class PendaftaranController extends Controller
             }
         });
 
-        return new PendaftaranResource($pendaftaran->fresh(['mahasiswa.user', 'divisi']));
+        $pendaftaran->load(['mahasiswa.user', 'divisi']);
+        if (in_array($data['status'], ['disetujui', 'ditolak'])) {
+            Notifikasi::kirim(
+                $pendaftaran->mahasiswa->user,
+                'Hasil Seleksi Pendaftaran',
+                $data['status'] === 'disetujui'
+                ? "Selamat! Pendaftaran magang Anda di divisi {$pendaftaran->divisi->nama} telah DITERIMA."
+                : 'Mohon maaf, pendaftaran magang Anda tidak lolos seleksi kali ini.'
+            );
+        }
+
+        return new PendaftaranResource($pendaftaran);
     }
 
     public function destroy(Pendaftaran $pendaftaran)

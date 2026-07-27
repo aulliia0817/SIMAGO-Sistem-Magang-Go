@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SertifikatResource;
+use App\Models\Notifikasi;
 use App\Models\PesertaMagang;
 use App\Models\Sertifikat;
 use Illuminate\Http\Request;
@@ -54,6 +55,14 @@ class SertifikatController extends Controller
         }
 
         $sertifikat->update($data);
+
+        if ($data['status'] === 'terbit') {
+            Notifikasi::kirim(
+                $sertifikat->pesertaMagang->mahasiswa->user,
+                'Sertifikat Magang Sudah Dapat Diunduh',
+                'Selamat! Program magang Anda telah selesai dan sertifikat sudah dapat diunduh.'
+            );
+        }
 
         return new SertifikatResource($sertifikat);
     }

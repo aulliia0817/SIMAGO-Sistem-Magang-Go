@@ -7,6 +7,7 @@ use App\Http\Requests\ReviewDokumenRequest;
 use App\Http\Requests\UploadDokumenRequest;
 use App\Http\Resources\DokumenResource;
 use App\Models\Dokumen;
+use App\Models\Notifikasi;
 use Illuminate\Http\Request;
 
 class DokumenController extends Controller
@@ -36,6 +37,12 @@ class DokumenController extends Controller
             'status' => 'menunggu',
             'catatan' => null,
         ]);
+
+        Notifikasi::kirimKeRole(
+            'admin',
+            'Calon Peserta Memperbarui Data Pendaftaran',
+            "{$request->user()->name} mengunggah/memperbarui dokumen \"{$dokumen->jenis}\"."
+        );
 
         return new DokumenResource($dokumen);
     }
