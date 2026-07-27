@@ -20,7 +20,7 @@ class AbsensiController extends Controller
         $query = Absensi::with('pesertaMagang.mahasiswa.user', 'pesertaMagang.divisi');
 
         if ($user->role === 'pembimbing') {
-            $query->whereHas('pesertaMagang', fn($q) => $q->where('pembimbing_id', $user->pembimbing?->id));
+            $query->whereHas('pesertaMagang', fn ($q) => $q->where('pembimbing_id', $user->pembimbing?->id));
         }
 
         if ($belumVerifikasi = $request->boolean('belum_verifikasi')) {
@@ -39,31 +39,44 @@ class AbsensiController extends Controller
         return AbsensiResource::collection($peserta->absensis()->latest('tanggal')->get());
     }
 
-    /** Peserta: absen hari ini (check-in). */
+    /** Peserta: isi absensi hari ini (datang / pulang / izin / sakit / lupa absen). */
     public function store(StoreAbsensiRequest $request)
     {
         $peserta = $request->user()->mahasiswa?->pesertaMagang;
         abort_unless($peserta, 404, 'Anda belum menjadi peserta magang aktif.');
 
+        $data = $request->validated();
+        $sift = $data['sift'];
+
+        $payload = [
+            'sift' => $sift,
+            'keterangan' => $data['keterangan'] ?? null,
+            'di_luar_jam' => $request->boolean('di_luar_jam'),
+            'diverifikasi' => false,
+        ];
+
+        if (in_array($sift, ['izin', 'sakit'], true)) {
+            $payload['status'] = $sift;
+        } elseif ($sift === 'lupa_absen') {
+            // Diajukan sebagai pengecualian; tetap menunggu keputusan pembimbing saat verifikasi.
+            $payload['status'] = 'alpha';
+        } else {
+            $payload['status'] = 'hadir';
+            if ($sift === 'datang') {
+                $payload['jam_masuk'] = $data['jam_masuk'] ?? now()->format('H:i');
+            } else {
+                $payload['jam_keluar'] = $data['jam_keluar'] ?? now()->format('H:i');
+            }
+        }
+
+        if ($request->hasFile('bukti')) {
+            $payload['bukti_path'] = $request->file('bukti')->store('bukti-absensi', 'public');
+        }
+
         $absensi = $peserta->absensis()->updateOrCreate(
             ['tanggal' => now()->toDateString()],
-            $request->validated() + ['diverifikasi' => false]
+            $payload
         );
-
-        return new AbsensiResource($absensi);
-    }
-
-    /** Peserta: check-out hari ini (mengisi jam_keluar pada absensi yang sudah check-in). */
-    public function checkout(Request $request)
-    {
-        $peserta = $request->user()->mahasiswa?->pesertaMagang;
-        abort_unless($peserta, 404, 'Anda belum menjadi peserta magang aktif.');
-
-        $absensi = $peserta->absensis()->whereDate('tanggal', now()->toDateString())->first();
-        abort_unless($absensi, 422, 'Anda belum check-in hari ini.');
-        abort_if($absensi->jam_keluar, 422, 'Anda sudah check-out hari ini.');
-
-        $absensi->update(['jam_keluar' => now()->format('H:i')]);
 
         return new AbsensiResource($absensi);
     }

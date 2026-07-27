@@ -56,12 +56,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import {
-  api,
-  apiErrorMessage,
-  setOnUnauthorized,
-  openAuthenticatedFile,
-} from "./lib/api";
+import { api, apiErrorMessage, setOnUnauthorized } from "./lib/api";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -73,7 +68,6 @@ type AdminPage =
   | "seleksi"
   | "penempatan"
   | "pembimbing-akun"
-  | "divisi"
   | "monitoring"
   | "sertifikat"
   | "laporan"
@@ -157,9 +151,14 @@ type AbsensiItem = {
   nama: string;
   divisi: string;
   tanggal: string;
+  hari?: string;
   jam_masuk: string | null;
   jam_keluar: string | null;
   status: string;
+  sift?: string | null;
+  keterangan?: string | null;
+  bukti_url?: string | null;
+  di_luar_jam?: boolean;
   diverifikasi: boolean;
 };
 type LaporanItem = {
@@ -331,6 +330,11 @@ function getNavItems(role: Role): NavItem[] {
       },
       { icon: <Users size={18} />, label: "Data Pendaftar", page: "pendaftar" },
       {
+        icon: <FileCheck size={18} />,
+        label: "Verifikasi Berkas",
+        page: "verifikasi",
+      },
+      {
         icon: <ClipboardList size={18} />,
         label: "Proses Seleksi",
         page: "seleksi",
@@ -344,11 +348,6 @@ function getNavItems(role: Role): NavItem[] {
         icon: <UserCog size={18} />,
         label: "Manajemen Pembimbing",
         page: "pembimbing-akun",
-      },
-      {
-        icon: <Briefcase size={18} />,
-        label: "Kelola Divisi",
-        page: "divisi",
       },
       {
         icon: <BarChart3 size={18} />,
@@ -462,81 +461,78 @@ function Sidebar({
       {/* Logo */}
       <div
         className={cn(
-          "flex items-center gap-3 px-5 py-5 border-b border-white/10",
-          !open && "justify-center px-0",
-        )}
-      >
-        <div className="w-9 h-9 flex items-center justify-center shrink-0">
-          <img
-            src={logoKabupatenMadiun}
-            alt="Logo Kabupaten Madiun"
-            className="w-full h-full object-contain"
-          />
-        </div>
-        {open && (
-          <div className="whitespace-nowrap">
-            <p className="font-bold text-base leading-tight">SIMAGO</p>
-            <p className="text-[10px] text-[#A8C3AD] leading-tight">
-              Sistem Magang Go
-            </p>
-            <p className="text-[10px] text-[#A8C3AD] leading-tight">
-              Dukcapil Kabupaten Madiun
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Role badge */}
-      {open && (
-        <div className="px-4 py-3">
-          <div className="bg-[#2D5A45] rounded-lg px-3 py-2 whitespace-nowrap">
-            <p className="text-[10px] text-[#A8C3AD] uppercase tracking-wider font-semibold">
-              Role
-            </p>
-            <p className="text-sm font-semibold text-white">
-              {roleLabel[role]}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4 space-y-0.5">
-        {items.map((item) => (
-          <button
-            key={item.page}
-            title={!open ? item.label : undefined}
-            onClick={() => {
-              setPage(item.page);
-              setOpen(false);
-            }}
-            className={cn(
-              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
-              !open && "justify-center px-0",
-              page === item.page
-                ? "bg-white/15 text-white"
-                : "text-white/65 hover:bg-white/8 hover:text-white",
-            )}
-          >
-            {item.icon}
-            {open && item.label}
-          </button>
-        ))}
-      </nav>
-
-      {/* Logout */}
-      <div className="p-3 border-t border-white/10">
-        <button
-          onClick={onLogout}
-          title={!open ? "Keluar" : undefined}
-          className={cn(
-            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/65 hover:bg-white/8 hover:text-white transition-colors whitespace-nowrap",
+            "flex items-center gap-3 px-5 py-5 border-b border-white/10",
             !open && "justify-center px-0",
           )}
         >
-          <LogOut size={18} /> {open && "Keluar"}
-        </button>
-      </div>
+          <div className="w-9 h-9 flex items-center justify-center shrink-0">
+            <img
+              src={logoKabupatenMadiun}
+              alt="Logo Kabupaten Madiun"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          {open && (
+            <div className="whitespace-nowrap">
+              <p className="font-bold text-base leading-tight">SIMAGO</p>
+              <p className="text-[10px] text-[#A8C3AD] leading-tight">
+                Sistem Magang Go
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Role badge */}
+        {open && (
+          <div className="px-4 py-3">
+            <div className="bg-[#2D5A45] rounded-lg px-3 py-2 whitespace-nowrap">
+              <p className="text-[10px] text-[#A8C3AD] uppercase tracking-wider font-semibold">
+                Role
+              </p>
+              <p className="text-sm font-semibold text-white">
+                {roleLabel[role]}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4 space-y-0.5">
+          {items.map((item) => (
+            <button
+              key={item.page}
+              title={!open ? item.label : undefined}
+              onClick={() => {
+                setPage(item.page);
+                setOpen(false);
+              }}
+              className={cn(
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
+                !open && "justify-center px-0",
+                page === item.page
+                  ? "bg-white/15 text-white"
+                  : "text-white/65 hover:bg-white/8 hover:text-white",
+              )}
+            >
+              {item.icon}
+              {open && item.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Logout */}
+        <div className="p-3 border-t border-white/10">
+          <button
+            onClick={onLogout}
+            title={!open ? "Keluar" : undefined}
+            className={cn(
+              "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/65 hover:bg-white/8 hover:text-white transition-colors whitespace-nowrap",
+              !open && "justify-center px-0",
+            )}
+          >
+            <LogOut size={18} /> {open && "Keluar"}
+          </button>
+        </div>
     </aside>
   );
 }
@@ -612,9 +608,7 @@ function Layout({
       />
       <div className="ml-20 flex flex-col h-screen">
         <TopBar role={role} userName={userName} setPage={setPage} />
-        <main className="flex-1 min-h-0 p-5 lg:p-6 overflow-y-auto">
-          {children}
-        </main>
+        <main className="flex-1 min-h-0 p-5 lg:p-6 overflow-y-auto">{children}</main>
         <footer className="shrink-0 bg-white border-t border-[#1B4332]/10 py-3 lg:py-4 overflow-hidden">
           <div className="flex w-max animate-marquee">
             {[0, 1].map((i) => (
@@ -1375,7 +1369,10 @@ function AdminPendaftar({
                   ].map((h) => (
                     <th
                       key={h}
-                      className="text-left py-2.5 px-3 text-[#6B7770] text-xs font-semibold uppercase tracking-wide"
+                      className={cn(
+                        "py-2.5 px-3 text-[#6B7770] text-xs font-semibold uppercase tracking-wide",
+                        h === "Verifikasi Berkas" ? "text-center" : "text-left",
+                      )}
                     >
                       {h}
                     </th>
@@ -1400,7 +1397,7 @@ function AdminPendaftar({
                       <StatusBadge status={p.status} />
                     </td>
                     <td className="py-3 px-3">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center justify-center">
                         <button
                           onClick={() => {
                             onSelectPendaftaran(p.id);
@@ -1563,13 +1560,14 @@ function AdminVerifikasi({ pendaftaranId }: { pendaftaranId: number | null }) {
                   <StatusBadge status={doc.status} />
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {doc.file_url && (
-                      <button
-                        onClick={() => openAuthenticatedFile(doc.file_url!)}
+                      <a
+                        href={doc.file_url}
+                        target="_blank"
+                        rel="noreferrer"
                         className="p-1.5 rounded-lg hover:bg-[#D1FAE5] text-[#1B4332] transition-colors"
-                        title="Lihat file"
                       >
                         <Eye size={13} />
-                      </button>
+                      </a>
                     )}
                     {doc.status === "menunggu" && (
                       <>
@@ -2178,201 +2176,6 @@ function AdminPembimbing() {
                         </button>
                         <button
                           onClick={() => handleDelete(p)}
-                          className="p-1.5 rounded-lg hover:bg-red-100 text-red-600 transition-colors"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-    </div>
-  );
-}
-
-function AdminDivisi() {
-  const [list, setList] = useState<Divisi[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<Divisi | null>(null);
-  const [form, setForm] = useState({ nama: "", kuota: "" });
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState("");
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await api.get("/divisi");
-      setList(res.data.data);
-    } catch (err) {
-      setError(apiErrorMessage(err, "Gagal memuat data divisi."));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  function openAdd() {
-    setEditing(null);
-    setForm({ nama: "", kuota: "" });
-    setFormError("");
-    setFormOpen(true);
-  }
-
-  function openEdit(d: Divisi) {
-    setEditing(d);
-    setForm({ nama: d.nama, kuota: d.kuota.toString() });
-    setFormError("");
-    setFormOpen(true);
-  }
-
-  async function submitForm(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setFormError("");
-    try {
-      const payload = { nama: form.nama, kuota: Number(form.kuota) };
-      if (editing) {
-        await api.put(`/divisi/${editing.id}`, payload);
-      } else {
-        await api.post("/divisi", payload);
-      }
-      setFormOpen(false);
-      load();
-    } catch (err) {
-      setFormError(apiErrorMessage(err, "Gagal menyimpan data divisi."));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleDelete(d: Divisi) {
-    if (!confirm(`Hapus divisi ${d.nama}?`)) return;
-    try {
-      await api.delete(`/divisi/${d.id}`);
-      load();
-    } catch (err) {
-      alert(apiErrorMessage(err, "Gagal menghapus divisi."));
-    }
-  }
-
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-bold text-[#1B4332]">Kelola Divisi</h1>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors"
-        >
-          <Plus size={15} /> Tambah Divisi
-        </button>
-      </div>
-
-      {formOpen && (
-        <Card>
-          <h3 className="font-bold text-[#1B4332] mb-3">
-            {editing ? "Edit Divisi" : "Tambah Divisi"}
-          </h3>
-          <form
-            onSubmit={submitForm}
-            className="grid grid-cols-1 sm:grid-cols-2 gap-3"
-          >
-            <input
-              required
-              value={form.nama}
-              onChange={(e) => setForm((f) => ({ ...f, nama: e.target.value }))}
-              placeholder="Nama Divisi"
-              className="px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
-            />
-            <input
-              required
-              type="number"
-              min={0}
-              value={form.kuota}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, kuota: e.target.value }))
-              }
-              placeholder="Kuota Peserta"
-              className="px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
-            />
-            {formError && (
-              <p className="sm:col-span-2 text-sm text-red-600">{formError}</p>
-            )}
-            <div className="sm:col-span-2 flex gap-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
-              >
-                {saving ? "Menyimpan..." : "Simpan"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormOpen(false)}
-                className="px-4 py-2 border border-[#1B4332]/20 text-[#1B4332] text-sm font-semibold rounded-lg hover:bg-[#D1FAE5] transition-colors"
-              >
-                Batal
-              </button>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      <Card>
-        {loading ? (
-          <LoadingState />
-        ) : error ? (
-          <ErrorState message={error} onRetry={load} />
-        ) : list.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[#1B4332]/10">
-                  {["Nama Divisi", "Kuota", "Sisa Kuota", "Aksi"].map((h) => (
-                    <th
-                      key={h}
-                      className="text-left py-2.5 px-3 text-[#6B7770] text-xs font-semibold uppercase tracking-wide"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {list.map((d) => (
-                  <tr
-                    key={d.id}
-                    className="border-b border-[#1B4332]/5 hover:bg-[#F1F3F1]/50 transition-colors"
-                  >
-                    <td className="py-3 px-3 font-semibold text-[#1B4332]">
-                      {d.nama}
-                    </td>
-                    <td className="py-3 px-3 text-[#6B7770]">{d.kuota}</td>
-                    <td className="py-3 px-3 font-bold text-[#1B4332]">
-                      {d.sisa_kuota}
-                    </td>
-                    <td className="py-3 px-3">
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => openEdit(d)}
-                          className="p-1.5 rounded-lg hover:bg-[#D1FAE5] text-[#1B4332] transition-colors"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(d)}
                           className="p-1.5 rounded-lg hover:bg-red-100 text-red-600 transition-colors"
                         >
                           <Trash2 size={13} />
@@ -3483,8 +3286,8 @@ function UploadDokumen() {
     }
   }
 
-  const uploadedCount = docs.filter((d) => !!d.file_url).length;
-  const pct = docs.length ? Math.round((uploadedCount / docs.length) * 100) : 0;
+  const verified = docs.filter((d) => d.status === "terverifikasi").length;
+  const pct = docs.length ? Math.round((verified / docs.length) * 100) : 0;
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} onRetry={load} />;
@@ -3504,7 +3307,7 @@ function UploadDokumen() {
       <Card>
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-semibold text-[#3D4442]">
-            Total Kelengkapan: {uploadedCount} dari {docs.length} dokumen
+            Total Kelengkapan: {verified} dari {docs.length} dokumen
           </span>
           <span className="text-sm font-bold text-[#1B4332]">{pct}%</span>
         </div>
@@ -3567,27 +3370,15 @@ function UploadDokumen() {
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <StatusBadge status={doc.status} />
-                    {doc.file_url && (
-                      <button
-                        onClick={() => openAuthenticatedFile(doc.file_url!)}
-                        className="p-1.5 rounded-lg hover:bg-[#D1FAE5] text-[#1B4332] transition-colors"
-                        title="Lihat file"
-                      >
-                        <Eye size={14} />
-                      </button>
-                    )}
-                    {doc.status !== "terverifikasi" && (
+                    {(doc.status === "belum-upload" ||
+                      doc.status === "ditolak") && (
                       <button
                         disabled={uploadingId === doc.id}
                         onClick={() => triggerUpload(doc.id)}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1B4332] text-white text-xs font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
                       >
                         <Upload size={12} />{" "}
-                        {uploadingId === doc.id
-                          ? "Mengunggah..."
-                          : doc.file_url
-                            ? "Kirim Ulang"
-                            : "Upload"}
+                        {uploadingId === doc.id ? "Mengunggah..." : "Upload"}
                       </button>
                     )}
                   </div>
@@ -3760,11 +3551,137 @@ function TrackingStatus() {
   );
 }
 
+const HARI_OPTIONS = ["Senin", "Selasa", "Rabu", "Kamis", "Jum'at"];
+const SIFT_OPTIONS: { value: string; label: string }[] = [
+  { value: "datang", label: "Datang" },
+  { value: "pulang", label: "Pulang" },
+  { value: "izin", label: "Izin" },
+  { value: "sakit", label: "Sakit" },
+  { value: "lupa_absen", label: "Lupa Absen" },
+];
+
+function todayHariIndonesia() {
+  const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jum'at", "Sabtu"];
+  return days[new Date().getDay()];
+}
+
+function siftDalamJam(sift: string): boolean {
+  const now = new Date();
+  const menit = now.getHours() * 60 + now.getMinutes();
+  if (sift === "datang") return menit >= 7 * 60 && menit <= 8 * 60;
+  if (sift === "pulang") return menit >= 15 * 60 && menit <= 16 * 60;
+  return true;
+}
+
+function AturanAbsensi() {
+  return (
+    <Card className="border-amber-200 bg-amber-50">
+      <div className="flex items-start gap-3">
+        <AlertCircle size={18} className="text-amber-700 flex-shrink-0 mt-0.5" />
+        <div className="space-y-4 text-sm text-amber-900">
+          <div>
+            <p className="font-bold text-amber-900 uppercase tracking-wide text-xs mb-1">
+              Batas Pengisian Absensi
+            </p>
+            <ul className="list-disc pl-4 space-y-0.5">
+              <li>Datang: 07.00 – 08.00</li>
+              <li>Pulang: 15.00 – 16.00</li>
+            </ul>
+            <p className="mt-1">
+              Di luar jam tersebut, absensi tetap bisa dikirim namun{" "}
+              <strong>tidak akan direkap</strong> saat penilaian.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-bold text-amber-900 uppercase tracking-wide text-xs mb-1">
+              Ketentuan Izin
+            </p>
+            <p>
+              Diterima jika mengisi keterangan sesuai bukti foto yang
+              dilampirkan, dan bukti foto wajib mengaktifkan fitur{" "}
+              <strong>timestamp</strong>. Jika tidak sesuai, izin tidak akan
+              diterima.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-bold text-amber-900 uppercase tracking-wide text-xs mb-1">
+              Ketentuan Sakit
+            </p>
+            <p>
+              Diterima jika mengisi keterangan sesuai bukti foto yang
+              dilampirkan, dan bukti foto wajib mengaktifkan fitur{" "}
+              <strong>timestamp</strong> (contoh: foto obat, surat keterangan
+              dokter, kondisi, lokasi berobat). Jika tidak sesuai, sakit tidak
+              akan diterima.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-bold text-amber-900 uppercase tracking-wide text-xs mb-1">
+              Ketentuan Lupa Absen
+            </p>
+            <p>
+              Digunakan saat masuk tetapi pengisian absen di luar jam Datang
+              atau Pulang. Gunakan bukti foto yang sudah diaktifkan fitur{" "}
+              <strong>timestamp</strong>. Jika tidak sesuai, akan dianggap
+              tidak masuk.
+            </p>
+          </div>
+
+          <div className="p-3 rounded-lg bg-amber-100/70 border border-amber-200">
+            <p>
+              Selain ketentuan di atas, jika Izin, Sakit, atau Lupa Absen{" "}
+              <strong>wajib menghubungi Pembimbing Lapangan</strong> Pak Rico
+              Arimurti Respati dan konfirmasi ke Mas Robi.
+            </p>
+            <p className="mt-1.5">
+              <strong>Catatan:</strong> Jika tidak memenuhi ketentuan di atas
+              dan tetap melakukan absensi, absensi tidak akan direkap saat
+              penilaian. Jangan melakukan pengisian absensi secara berulang,
+              cukup 1 kali.
+            </p>
+          </div>
+
+          <div>
+            <p className="font-bold text-amber-900 uppercase tracking-wide text-xs mb-1">
+              Wajib Diisi
+            </p>
+            <ul className="list-disc pl-4 space-y-0.5">
+              <li>Hari — Senin, Selasa, Rabu, Kamis, Jum'at</li>
+              <li>Sift — Datang, Pulang, Izin, Sakit, Lupa Absen</li>
+              <li>
+                Keterangan — wajib diisi jika Izin, Sakit, atau Lupa Absen.
+                Jika tidak diisi, dianggap tidak masuk.
+              </li>
+              <li>
+                Dokumen pendukung — wajib diunggah jika Izin, Sakit, atau
+                Lupa Absen (PDF, gambar, atau video). Untuk gambar/video
+                wajib merekam lokasi/GPS. Jika tidak diisi, dianggap tidak
+                masuk.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function PesertaAbsensi() {
   const [entries, setEntries] = useState<AbsensiItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [checkingIn, setCheckingIn] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [hari, setHari] = useState(todayHariIndonesia());
+  const [sift, setSift] = useState("datang");
+  const [keterangan, setKeterangan] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -3801,21 +3718,87 @@ function PesertaAbsensi() {
   ];
   const now0 = new Date();
   const todayBackendFormat = `${String(now0.getDate()).padStart(2, "0")} ${EN_MONTHS[now0.getMonth()]} ${now0.getFullYear()}`;
-  const alreadyCheckedInToday = entries.some(
-    (e) => e.tanggal === todayBackendFormat,
-  );
+  const todayEntry = entries.find((e) => e.tanggal === todayBackendFormat);
+  const sudahDatang = !!todayEntry?.jam_masuk;
+  const sudahPulang = !!todayEntry?.jam_keluar;
 
-  async function checkIn() {
-    setCheckingIn(true);
+  const perluBukti = sift === "izin" || sift === "sakit" || sift === "lupa_absen";
+  const diLuarJam = (sift === "datang" || sift === "pulang") && !siftDalamJam(sift);
+
+  function alreadyDoneToday(s: string) {
+    if (!todayEntry) return false;
+    if (s === "datang") return sudahDatang;
+    if (s === "pulang") return sudahPulang;
+    if (s === "izin") return todayEntry.status === "izin";
+    if (s === "sakit") return todayEntry.status === "sakit";
+    if (s === "lupa_absen") return todayEntry.sift === "lupa_absen";
+    return false;
+  }
+  const sudahMengisiSiftIni = alreadyDoneToday(sift);
+
+  function resetForm() {
+    setSift("datang");
+    setKeterangan("");
+    setFile(null);
+    setFormError("");
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setFormError("");
+    if (!hari) {
+      setFormError("Hari wajib diisi.");
+      return;
+    }
+    if (!sift) {
+      setFormError("Sift wajib dipilih.");
+      return;
+    }
+    if (sudahMengisiSiftIni) {
+      setFormError(
+        "Kamu sudah mengisi absensi untuk sift ini hari ini. Tidak perlu mengisi berulang.",
+      );
+      return;
+    }
+    if (perluBukti) {
+      if (!keterangan.trim()) {
+        setFormError(
+          "Keterangan wajib diisi untuk Izin, Sakit, atau Lupa Absen.",
+        );
+        return;
+      }
+      if (!file) {
+        setFormError(
+          "Dokumen pendukung wajib diunggah untuk Izin, Sakit, atau Lupa Absen.",
+        );
+        return;
+      }
+    }
+
+    setSubmitting(true);
     try {
       const now = new Date();
       const jam = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-      await api.post("/absensi", { status: "hadir", jam_masuk: jam });
+      const fd = new FormData();
+      fd.append("sift", sift);
+      if (perluBukti) {
+        fd.append("keterangan", keterangan);
+        if (file) fd.append("bukti", file);
+      }
+      if (sift === "datang") fd.append("jam_masuk", jam);
+      if (sift === "pulang") fd.append("jam_keluar", jam);
+      if (diLuarJam) fd.append("di_luar_jam", "1");
+      await api.post("/absensi", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setShowForm(false);
+      resetForm();
       load();
     } catch (err) {
-      alert(apiErrorMessage(err, "Gagal melakukan check-in."));
+      setFormError(apiErrorMessage(err, "Gagal mengirim absensi."));
     } finally {
-      setCheckingIn(false);
+      setSubmitting(false);
     }
   }
 
@@ -3828,31 +3811,186 @@ function PesertaAbsensi() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-bold text-[#1B4332]">Absensi</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-xl font-bold text-[#1B4332]">Absensi</h1>
+        <button
+          onClick={() => setShowRules((s) => !s)}
+          className="flex items-center gap-1.5 text-sm text-[#1B4332] font-semibold hover:underline"
+        >
+          <AlertCircle size={14} />
+          {showRules ? "Tutup Syarat & Ketentuan" : "Lihat Syarat & Ketentuan"}
+        </button>
+      </div>
 
-      <Card className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-xl bg-[#D1FAE5] flex items-center justify-center text-[#1B4332]">
+      {showRules && <AturanAbsensi />}
+
+      <Card className="flex items-center gap-4 flex-wrap">
+        <div className="w-12 h-12 rounded-xl bg-[#D1FAE5] flex items-center justify-center text-[#1B4332] flex-shrink-0">
           <Fingerprint size={22} />
         </div>
-        <div className="flex-1">
-          <p className="font-bold text-[#1B4332]">Check In Hari Ini</p>
-          <p className="text-sm text-[#6B7770]">
-            {todayLabel} —{" "}
-            {alreadyCheckedInToday ? "Sudah check-in" : "Belum check-in"}
-          </p>
+        <div className="flex-1 min-w-[200px]">
+          <p className="font-bold text-[#1B4332]">Absensi Hari Ini</p>
+          <p className="text-sm text-[#6B7770]">{todayLabel}</p>
+          <div className="flex flex-wrap gap-2 mt-1.5">
+            <span
+              className={cn(
+                "px-2 py-0.5 rounded-full text-xs font-semibold",
+                sudahDatang
+                  ? "bg-[#D1FAE5] text-[#1B4332]"
+                  : "bg-gray-100 text-gray-500",
+              )}
+            >
+              Datang {sudahDatang ? `✓ ${todayEntry?.jam_masuk}` : "— belum"}
+            </span>
+            <span
+              className={cn(
+                "px-2 py-0.5 rounded-full text-xs font-semibold",
+                sudahPulang
+                  ? "bg-[#D1FAE5] text-[#1B4332]"
+                  : "bg-gray-100 text-gray-500",
+              )}
+            >
+              Pulang {sudahPulang ? `✓ ${todayEntry?.jam_keluar}` : "— belum"}
+            </span>
+          </div>
         </div>
         <button
-          disabled={checkingIn || alreadyCheckedInToday}
-          onClick={checkIn}
-          className="px-5 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
+          onClick={() => {
+            resetForm();
+            setShowForm(true);
+          }}
+          className="px-5 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors"
         >
-          {alreadyCheckedInToday
-            ? "Sudah Check In"
-            : checkingIn
-              ? "Memproses..."
-              : "Check In Sekarang"}
+          Isi Absensi
         </button>
       </Card>
+
+      {showForm && (
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-[#1B4332]">
+              Form Pengisian Absensi
+            </h3>
+            <button
+              onClick={() => setShowForm(false)}
+              className="text-[#6B7770] hover:text-[#1B4332] transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
+                  Hari *
+                </label>
+                <select
+                  value={hari}
+                  onChange={(e) => setHari(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none"
+                >
+                  {HARI_OPTIONS.map((h) => (
+                    <option key={h} value={h}>
+                      {h}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
+                  Sift *
+                </label>
+                <select
+                  value={sift}
+                  onChange={(e) => {
+                    setSift(e.target.value);
+                    setFormError("");
+                  }}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none"
+                >
+                  {SIFT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {sudahMengisiSiftIni && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                <AlertCircle size={14} className="flex-shrink-0" /> Kamu sudah
+                mengisi sift ini hari ini. Tidak perlu mengisi berulang.
+              </div>
+            )}
+
+            {!sudahMengisiSiftIni &&
+              (sift === "datang" || sift === "pulang") &&
+              diLuarJam && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                  <AlertCircle size={14} className="flex-shrink-0" /> Saat ini
+                  di luar jam{" "}
+                  {sift === "datang"
+                    ? "Datang (07.00–08.00)"
+                    : "Pulang (15.00–16.00)"}
+                  . Absensi tetap bisa dikirim, tapi tidak akan direkap saat
+                  penilaian.
+                </div>
+              )}
+
+            {perluBukti && (
+              <>
+                <div>
+                  <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
+                    Keterangan *
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={keterangan}
+                    onChange={(e) => setKeterangan(e.target.value)}
+                    placeholder="Jelaskan alasan izin / sakit / lupa absen..."
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20 resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
+                    Dokumen Pendukung *
+                  </label>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept=".pdf,image/*,video/*"
+                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                    className="w-full text-sm text-[#3D4442] file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-[#1B4332] file:text-white file:text-xs file:font-semibold"
+                  />
+                  <p className="text-[11px] text-[#6B7770] mt-1">
+                    Format: PDF, gambar, atau video. Untuk gambar/video wajib
+                    mengaktifkan fitur timestamp & merekam lokasi/GPS, jika
+                    tidak sesuai maka tidak akan diterima.
+                  </p>
+                </div>
+              </>
+            )}
+
+            {formError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+                <AlertCircle size={15} /> {formError}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting || sudahMengisiSiftIni}
+              className="w-full sm:w-auto px-5 py-2.5 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
+            >
+              {submitting ? "Mengirim..." : "Kirim Absensi"}
+            </button>
+          </form>
+        </Card>
+      )}
 
       <Card>
         <h3 className="font-bold text-[#1B4332] mb-4">Riwayat Absensi</h3>
@@ -3867,7 +4005,15 @@ function PesertaAbsensi() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#1B4332]/10">
-                  {["Tanggal", "Check In", "Check Out", "Status"].map((h) => (
+                  {[
+                    "Tanggal",
+                    "Sift",
+                    "Check In",
+                    "Check Out",
+                    "Keterangan",
+                    "Bukti",
+                    "Status",
+                  ].map((h) => (
                     <th
                       key={h}
                       className="text-left py-2.5 px-3 text-[#6B7770] text-xs font-semibold uppercase tracking-wide"
@@ -3885,12 +4031,49 @@ function PesertaAbsensi() {
                   >
                     <td className="py-3 px-3 font-medium text-[#3D4442]">
                       {e.tanggal}
+                      {e.hari && (
+                        <span className="text-[#6B7770] font-normal">
+                          {" "}
+                          — {e.hari}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 text-[#6B7770] capitalize">
+                      {SIFT_OPTIONS.find((o) => o.value === e.sift)?.label ??
+                        "-"}
+                      {e.di_luar_jam && (
+                        <span
+                          title="Di luar jam yang ditentukan, tidak direkap"
+                          className="ml-1 text-amber-600"
+                        >
+                          ⚠
+                        </span>
+                      )}
                     </td>
                     <td className="py-3 px-3 font-mono text-sm text-[#3D4442]">
                       {e.jam_masuk ?? "-"}
                     </td>
                     <td className="py-3 px-3 font-mono text-sm text-[#3D4442]">
                       {e.jam_keluar ?? "-"}
+                    </td>
+                    <td className="py-3 px-3 text-[#6B7770] max-w-[220px]">
+                      <span className="line-clamp-2">
+                        {e.keterangan ?? "-"}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">
+                      {e.bukti_url ? (
+                        <a
+                          href={e.bukti_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-[#1B4332] font-semibold hover:underline"
+                        >
+                          <Eye size={13} /> Lihat
+                        </a>
+                      ) : (
+                        <span className="text-[#6B7770]">-</span>
+                      )}
                     </td>
                     <td className="py-3 px-3">
                       <StatusBadge
@@ -4143,12 +4326,14 @@ function PesertaSertifikat() {
               : "Sertifikat kamu sedang diproses oleh admin."}
         </p>
         {isTerbit && s?.file_url && (
-          <button
-            onClick={() => openAuthenticatedFile(s.file_url!)}
+          <a
+            href={s.file_url}
+            target="_blank"
+            rel="noreferrer"
             className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors"
           >
             <Download size={14} /> Unduh Sertifikat
-          </button>
+          </a>
         )}
         {peserta && (
           <div className="mt-5 p-4 rounded-xl bg-[#F1F3F1] text-left max-w-xs mx-auto">
@@ -4479,8 +4664,11 @@ function AbsensiVerify() {
                   {[
                     "Peserta",
                     "Tanggal",
+                    "Sift",
                     "Masuk",
                     "Keluar",
+                    "Keterangan",
+                    "Bukti",
                     "Status",
                     "Aksi",
                   ].map((h) => (
@@ -4503,11 +4691,41 @@ function AbsensiVerify() {
                       {e.nama}
                     </td>
                     <td className="py-3 px-3 text-[#6B7770]">{e.tanggal}</td>
+                    <td className="py-3 px-3 text-[#6B7770] capitalize">
+                      {e.sift?.replace("_", " ") ?? "-"}
+                      {e.di_luar_jam && (
+                        <span
+                          title="Di luar jam yang ditentukan, tidak direkap"
+                          className="ml-1 text-amber-600"
+                        >
+                          ⚠
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3 px-3 font-mono text-sm text-[#3D4442]">
                       {e.jam_masuk ?? "-"}
                     </td>
                     <td className="py-3 px-3 font-mono text-sm text-[#3D4442]">
                       {e.jam_keluar ?? "-"}
+                    </td>
+                    <td className="py-3 px-3 text-[#6B7770] max-w-[200px]">
+                      <span className="line-clamp-2">
+                        {e.keterangan ?? "-"}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">
+                      {e.bukti_url ? (
+                        <a
+                          href={e.bukti_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-[#1B4332] font-semibold hover:underline"
+                        >
+                          <Eye size={13} /> Lihat
+                        </a>
+                      ) : (
+                        <span className="text-[#6B7770]">-</span>
+                      )}
                     </td>
                     <td className="py-3 px-3">
                       <StatusBadge
@@ -5041,8 +5259,6 @@ export default function App() {
           return <AdminPenempatan />;
         case "pembimbing-akun":
           return <AdminPembimbing />;
-        case "divisi":
-          return <AdminDivisi />;
         case "monitoring":
           return <AdminMonitoring />;
         case "sertifikat":
@@ -5066,7 +5282,7 @@ export default function App() {
         case "rekomendasi":
           return <Rekomendasi />;
         case "profil":
-          return <PembimbingProfil />;
+          return <AdminProfil />;
       }
     }
 

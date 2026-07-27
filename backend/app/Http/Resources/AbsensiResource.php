@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class AbsensiResource extends JsonResource
 {
@@ -15,9 +16,14 @@ class AbsensiResource extends JsonResource
             'nama' => $this->pesertaMagang->mahasiswa->user->name ?? '-',
             'divisi' => $this->pesertaMagang->divisi->nama ?? '-',
             'tanggal' => optional($this->tanggal)->format('d M Y'),
-            'jam_masuk' => $this->jam_masuk ? substr($this->jam_masuk, 0, 5) : null,
-            'jam_keluar' => $this->jam_keluar ? substr($this->jam_keluar, 0, 5) : null,
+            'hari' => optional($this->tanggal)->translatedFormat('l'),
+            'jam_masuk' => $this->jam_masuk,
+            'jam_keluar' => $this->jam_keluar,
             'status' => $this->status,
+            'sift' => $this->sift,
+            'keterangan' => $this->keterangan,
+            'bukti_url' => $this->bukti_path ? Storage::disk('public')->url($this->bukti_path) : null,
+            'di_luar_jam' => (bool) $this->di_luar_jam,
             'diverifikasi' => $this->diverifikasi,
         ];
     }

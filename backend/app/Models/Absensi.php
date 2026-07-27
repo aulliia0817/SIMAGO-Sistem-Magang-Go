@@ -10,7 +10,8 @@ class Absensi extends Model
     use HasFactory;
 
     protected $fillable = [
-        'peserta_magang_id', 'tanggal', 'jam_masuk', 'jam_keluar', 'status', 'diverifikasi',
+        'peserta_magang_id', 'tanggal', 'jam_masuk', 'jam_keluar', 'status',
+        'sift', 'keterangan', 'bukti_path', 'di_luar_jam', 'diverifikasi',
     ];
 
     protected function casts(): array
