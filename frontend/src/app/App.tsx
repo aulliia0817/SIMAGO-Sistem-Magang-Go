@@ -2943,6 +2943,8 @@ function AdminLaporan() {
   const [riwayat, setRiwayat] = useState<PendaftarItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [dariTanggal, setDariTanggal] = useState("2025-07-01");
+  const [sampaiTanggal, setSampaiTanggal] = useState("2025-09-30");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2951,7 +2953,12 @@ function AdminLaporan() {
       const [dash, disetujui, selesai, terbit] = await Promise.all([
         api.get("/dashboard"),
         api.get("/pendaftar", {
-          params: { status: "disetujui", per_page: 50 },
+          params: {
+            status: "disetujui",
+            per_page: 50,
+            dari_tanggal: dariTanggal,
+            sampai_tanggal: sampaiTanggal,
+          },
         }),
         api.get("/peserta", { params: { status: "selesai" } }),
         api.get("/sertifikat", { params: { status: "terbit" } }),
@@ -2970,11 +2977,94 @@ function AdminLaporan() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dariTanggal, sampaiTanggal]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  function exportExcel() {
+    const header = ["Nama", "Institusi", "Divisi", "Periode", "Status"];
+    const rows = riwayat.map((p) => [
+      p.nama,
+      p.institusi,
+      p.divisi,
+      p.periode,
+      p.status,
+    ]);
+    const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+    const csv = [
+      `Laporan & Rekapitulasi (${dariTanggal} s/d ${sampaiTanggal})`,
+      "",
+      "Ringkasan Data",
+      ...Object.entries(ringkasan).map(([k, v]) => `${escape(k)},${v}`),
+      "",
+      header.map(escape).join(","),
+      ...rows.map((r) => r.map(escape).join(",")),
+    ].join("\n");
+
+    const blob = new Blob(["\uFEFF" + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `laporan-rekapitulasi-${dariTanggal}-${sampaiTanggal}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportPdf() {
+    const win = window.open("", "_blank");
+    if (!win) {
+      alert(
+        "Popup diblokir browser. Izinkan popup untuk situs ini lalu coba lagi.",
+      );
+      return;
+    }
+    const ringkasanRows = Object.entries(ringkasan)
+      .map(
+        ([k, v]) =>
+          `<tr><td>${k}</td><td style="text-align:right">${v}</td></tr>`,
+      )
+      .join("");
+    const riwayatRows = riwayat
+      .map(
+        (p) =>
+          `<tr><td>${p.nama}</td><td>${p.institusi}</td><td>${p.divisi}</td><td>${p.periode}</td><td>${p.status}</td></tr>`,
+      )
+      .join("");
+    win.document.write(`
+      <html>
+        <head>
+          <title>Laporan & Rekapitulasi</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #1B4332; }
+            h1 { font-size: 18px; margin-bottom: 4px; }
+            p.periode { color: #6B7770; margin-top: 0; margin-bottom: 20px; }
+            h2 { font-size: 14px; margin-top: 24px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+            th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+            th { background: #F1F3F1; }
+          </style>
+        </head>
+        <body>
+          <h1>Laporan & Rekapitulasi Magang</h1>
+          <p class="periode">Periode: ${dariTanggal} s/d ${sampaiTanggal}</p>
+          <h2>Ringkasan Data</h2>
+          <table>${ringkasanRows}</table>
+          <h2>Riwayat Magang</h2>
+          <table>
+            <thead><tr><th>Nama</th><th>Institusi</th><th>Divisi</th><th>Periode</th><th>Status</th></tr></thead>
+            <tbody>${riwayatRows}</tbody>
+          </table>
+        </body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} onRetry={load} />;
@@ -2995,8 +3085,9 @@ function AdminLaporan() {
               </label>
               <input
                 type="date"
+                value={dariTanggal}
+                onChange={(e) => setDariTanggal(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
-                defaultValue="2025-07-01"
               />
             </div>
             <div>
@@ -3005,15 +3096,22 @@ function AdminLaporan() {
               </label>
               <input
                 type="date"
+                value={sampaiTanggal}
+                onChange={(e) => setSampaiTanggal(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
-                defaultValue="2025-09-30"
               />
             </div>
             <div className="flex gap-2">
-              <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors">
+              <button
+                onClick={exportExcel}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors"
+              >
                 <Download size={14} /> Excel
               </button>
-              <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-[#1B4332]/20 text-[#1B4332] text-sm font-semibold rounded-lg hover:bg-[#D1FAE5] transition-colors">
+              <button
+                onClick={exportPdf}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-[#1B4332]/20 text-[#1B4332] text-sm font-semibold rounded-lg hover:bg-[#D1FAE5] transition-colors"
+              >
                 <Download size={14} /> PDF
               </button>
             </div>

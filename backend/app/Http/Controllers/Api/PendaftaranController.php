@@ -32,6 +32,14 @@ class PendaftaranController extends Controller
             }
         }
 
+        if ($dari = $request->query('dari_tanggal')) {
+            $query->whereDate('created_at', '>=', $dari);
+        }
+
+        if ($sampai = $request->query('sampai_tanggal')) {
+            $query->whereDate('created_at', '<=', $sampai);
+        }
+
         return PendaftaranResource::collection($query->latest()->paginate($request->integer('per_page', 15)));
     }
 

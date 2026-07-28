@@ -61,6 +61,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/laporan/saya', [LaporanHarianController::class, 'mine']);
         Route::post('/laporan', [LaporanHarianController::class, 'store']);
         Route::get('/sertifikat/saya', [SertifikatController::class, 'mine']);
+        Route::put('/laporan/{laporanHarian}/revisi', [LaporanHarianController::class, 'revise']);
     });
 
     // ── Pembimbing Lapangan ───────────────────────────────────────────────
