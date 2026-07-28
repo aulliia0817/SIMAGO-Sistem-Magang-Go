@@ -21,13 +21,20 @@ class DokumenController extends Controller
             return response()->json(['message' => 'Belum ada pendaftaran.'], 404);
         }
 
-        return DokumenResource::collection($pendaftaran->dokumens);
+        return DokumenResource::collection($pendaftaran->dokumens)->additional([
+            'dokumen_dikirim' => $pendaftaran->dokumen_dikirim_at !== null,
+        ]);
     }
 
     /** Calon/Peserta: upload/ganti file untuk satu jenis dokumen. */
     public function upload(UploadDokumenRequest $request, Dokumen $dokumen)
     {
         $this->authorizeOwnership($request, $dokumen);
+
+        $pendaftaran = $dokumen->pendaftaran;
+        if ($pendaftaran->dokumen_dikirim_at && $dokumen->status !== 'ditolak') {
+            abort(403, 'Berkas sudah dikirim untuk diverifikasi dan tidak bisa diubah lagi.');
+        }
 
         $path = $request->file('file')->store('dokumen', 'public');
 

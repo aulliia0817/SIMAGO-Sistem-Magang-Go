@@ -109,6 +109,30 @@ class PendaftaranController extends Controller
         return new PendaftaranResource($pendaftaran);
     }
 
+    public function kirimDokumen(Request $request)
+    {
+        $pendaftaran = $request->user()->mahasiswa?->pendaftarans()->with('dokumens')->latest()->first();
+        abort_unless($pendaftaran, 404, 'Belum ada pendaftaran.');
+
+        if ($pendaftaran->dokumen_dikirim_at) {
+            return new PendaftaranResource($pendaftaran);
+        }
+
+        $belumLengkap = $pendaftaran->dokumens->contains(fn ($d) => !$d->file_path);
+        abort_if($belumLengkap, 422, 'Semua dokumen wajib diunggah terlebih dahulu sebelum bisa dikirim.');
+
+        $pendaftaran->update(['dokumen_dikirim_at' => now()]);
+
+        Notifikasi::kirimKeRole(
+            'admin',
+            'Berkas Pendaftaran Dikirim',
+            "{$request->user()->name} telah mengirim seluruh berkas pendaftaran untuk diverifikasi.",
+            halaman: 'verifikasi'
+        );
+
+        return new PendaftaranResource($pendaftaran);
+    }
+
     /**
      * Admin: proses seleksi (ubah status). Jika disetujui, otomatis membuat
      * PesertaMagang dengan pembimbing & periode yang ditentukan.

@@ -3716,9 +3716,12 @@ function FormPendaftaran({ setPage }: { setPage: (p: Page) => void }) {
 
 function UploadDokumen() {
   const [docs, setDocs] = useState<DokumenItem[]>([]);
+  const [sudahDikirim, setSudahDikirim] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [uploadingId, setUploadingId] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pendingDocId = useRef<number | null>(null);
 
@@ -3728,6 +3731,7 @@ function UploadDokumen() {
     try {
       const { data } = await api.get("/dokumen/saya");
       setDocs(data.data);
+      setSudahDikirim(!!data.dokumen_dikirim);
     } catch (err) {
       setError(apiErrorMessage(err, "Gagal memuat data dokumen."));
     } finally {
@@ -3765,8 +3769,22 @@ function UploadDokumen() {
     }
   }
 
+  async function handleKirimBerkas() {
+    setSendError("");
+    setSending(true);
+    try {
+      await api.put("/pendaftaran/kirim-dokumen");
+      load();
+    } catch (err) {
+      setSendError(apiErrorMessage(err, "Gagal mengirim berkas."));
+    } finally {
+      setSending(false);
+    }
+  }
+
   const uploadedCount = docs.filter((d) => !!d.file_url).length;
   const pct = docs.length ? Math.round((uploadedCount / docs.length) * 100) : 0;
+  const semuaTerupload = docs.length > 0 && uploadedCount === docs.length;
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} onRetry={load} />;
@@ -3782,6 +3800,14 @@ function UploadDokumen() {
         className="hidden"
         onChange={handleFileChosen}
       />
+
+      {sudahDikirim && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-[#D1FAE5] border border-[#1B4332]/20 text-[#1B4332] text-sm">
+          <CheckCircle size={16} className="flex-shrink-0" /> Berkas sudah
+          dikirim dan sedang diverifikasi admin. Dokumen tidak bisa diubah
+          lagi, kecuali ada yang ditolak dan perlu diunggah ulang.
+        </div>
+      )}
 
       <Card>
         <div className="flex items-center justify-between mb-2">
@@ -3801,81 +3827,119 @@ function UploadDokumen() {
           <EmptyState label="Belum ada pendaftaran. Lengkapi form pendaftaran terlebih dahulu." />
         ) : (
           <div className="space-y-3">
-            {docs.map((doc) => (
-              <div
-                key={doc.id}
-                className="p-3.5 rounded-xl border border-[#1B4332]/10 bg-[#F1F3F1]"
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={cn(
-                      "w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0",
-                      doc.status === "terverifikasi"
-                        ? "bg-[#D1FAE5]"
-                        : doc.status === "menunggu"
-                          ? "bg-amber-100"
-                          : doc.status === "ditolak"
-                            ? "bg-red-100"
-                            : "bg-gray-100",
-                    )}
-                  >
-                    <FileText
-                      size={16}
-                      className={
+            {docs.map((doc) => {
+              const terkunci =
+                sudahDikirim &&
+                doc.status !== "ditolak" &&
+                doc.status !== "belum-upload";
+              return (
+                <div
+                  key={doc.id}
+                  className="p-3.5 rounded-xl border border-[#1B4332]/10 bg-[#F1F3F1]"
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={cn(
+                        "w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0",
                         doc.status === "terverifikasi"
-                          ? "text-[#1B4332]"
+                          ? "bg-[#D1FAE5]"
                           : doc.status === "menunggu"
-                            ? "text-amber-700"
+                            ? "bg-amber-100"
                             : doc.status === "ditolak"
-                              ? "text-red-600"
-                              : "text-gray-400"
-                      }
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[#3D4442] text-sm">
-                      {doc.nama}
-                    </p>
-                    {doc.catatan && (
-                      <p className="text-xs text-red-600 mt-0.5">
-                        {doc.catatan}
+                              ? "bg-red-100"
+                              : "bg-gray-100",
+                      )}
+                    >
+                      <FileText
+                        size={16}
+                        className={
+                          doc.status === "terverifikasi"
+                            ? "text-[#1B4332]"
+                            : doc.status === "menunggu"
+                              ? "text-amber-700"
+                              : doc.status === "ditolak"
+                                ? "text-red-600"
+                                : "text-gray-400"
+                        }
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-[#3D4442] text-sm">
+                        {doc.nama}
                       </p>
-                    )}
-                    {doc.file_name && (
-                      <p className="text-xs text-[#6B7770] mt-0.5">
-                        {doc.file_name}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <StatusBadge status={doc.status} />
-                    {doc.file_url && (
-                      <button
-                        onClick={() => openAuthenticatedFile(doc.file_url!)}
-                        className="p-1.5 rounded-lg hover:bg-[#D1FAE5] text-[#1B4332] transition-colors"
-                        title="Lihat file"
-                      >
-                        <Eye size={14} />
-                      </button>
-                    )}
-                    {doc.status !== "terverifikasi" && (
-                      <button
-                        disabled={uploadingId === doc.id}
-                        onClick={() => triggerUpload(doc.id)}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1B4332] text-white text-xs font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
-                      >
-                        <Upload size={12} />{" "}
-                        {uploadingId === doc.id
-                          ? "Mengunggah..."
-                          : doc.file_url
-                            ? "Kirim Ulang"
-                            : "Upload"}
-                      </button>
-                    )}
+                      {doc.catatan && (
+                        <p className="text-xs text-red-600 mt-0.5">
+                          {doc.catatan}
+                        </p>
+                      )}
+                      {doc.file_name && (
+                        <p className="text-xs text-[#6B7770] mt-0.5">
+                          {doc.file_name}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <StatusBadge status={doc.status} />
+                      {doc.file_url && (
+                        <button
+                          onClick={() => openAuthenticatedFile(doc.file_url!)}
+                          className="p-1.5 rounded-lg hover:bg-[#D1FAE5] text-[#1B4332] transition-colors"
+                          title="Lihat file"
+                        >
+                          <Eye size={14} />
+                        </button>
+                      )}
+                      {doc.status !== "terverifikasi" &&
+                        (terkunci ? (
+                          <span
+                            title="Terkunci — berkas sudah dikirim untuk verifikasi"
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-200 text-gray-500 text-xs font-semibold"
+                          >
+                            <Fingerprint size={12} /> Terkunci
+                          </span>
+                        ) : (
+                          <button
+                            disabled={uploadingId === doc.id}
+                            onClick={() => triggerUpload(doc.id)}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1B4332] text-white text-xs font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
+                          >
+                            <Upload size={12} />{" "}
+                            {uploadingId === doc.id
+                              ? "Mengunggah..."
+                              : doc.file_url
+                                ? "Kirim Ulang"
+                                : "Upload"}
+                          </button>
+                        ))}
+                    </div>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+        )}
+
+        {docs.length > 0 && !sudahDikirim && (
+          <div className="mt-5 pt-4 border-t border-[#1B4332]/10">
+            {!semuaTerupload && (
+              <p className="text-xs text-[#6B7770] mb-2">
+                Lengkapi semua dokumen di atas terlebih dahulu sebelum bisa
+                mengirim berkas.
+              </p>
+            )}
+            {sendError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm mb-3">
+                <AlertCircle size={15} /> {sendError}
               </div>
-            ))}
+            )}
+            <button
+              disabled={!semuaTerupload || sending}
+              onClick={handleKirimBerkas}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Send size={14} />{" "}
+              {sending ? "Mengirim..." : "Kirim Berkas"}
+            </button>
           </div>
         )}
       </Card>

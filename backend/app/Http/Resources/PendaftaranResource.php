@@ -21,6 +21,7 @@ class PendaftaranResource extends JsonResource
             'tanggal' => optional($this->created_at)->format('d M Y'),
             'status' => $this->status,
             'catatan_admin' => $this->catatan_admin,
+            'dokumen_dikirim' => $this->dokumen_dikirim_at !== null,
             'sudah_ditempatkan' => $this->relationLoaded('pesertaMagang') ? $this->pesertaMagang !== null : null,
             'dokumen' => DokumenResource::collection($this->whenLoaded('dokumens')),
         ];

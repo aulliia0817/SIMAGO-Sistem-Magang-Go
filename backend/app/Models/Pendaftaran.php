@@ -11,7 +11,7 @@ class Pendaftaran extends Model
 
     protected $fillable = [
         'mahasiswa_id', 'divisi_id', 'periode', 'tanggal_mulai', 'tanggal_selesai',
-        'motivasi', 'status', 'catatan_admin',
+        'motivasi', 'status', 'catatan_admin', 'dokumen_dikirim_at',
     ];
 
     protected function casts(): array
@@ -19,6 +19,7 @@ class Pendaftaran extends Model
         return [
             'tanggal_mulai' => 'date',
             'tanggal_selesai' => 'date',
+            'dokumen_dikirim_at' => 'datetime',
         ];
     }
 

@@ -48,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:calon,peserta')->group(function () {
         Route::post('/pendaftaran', [PendaftaranController::class, 'store']);
         Route::get('/pendaftaran/saya', [PendaftaranController::class, 'mine']);
+        Route::put('/pendaftaran/kirim-dokumen', [PendaftaranController::class, 'kirimDokumen']);
         Route::get('/dokumen/saya', [DokumenController::class, 'mine']);
         Route::post('/dokumen/{dokumen}/upload', [DokumenController::class, 'upload']);
     });
