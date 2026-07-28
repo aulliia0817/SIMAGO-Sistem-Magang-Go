@@ -10,9 +10,9 @@ export const api = axios.create({
   headers: { Accept: "application/json" },
 });
 
-// Sisipkan token Bearer (disimpan di localStorage setelah login) ke setiap request.
+// Sisipkan token Bearer (disimpan di sessionStorage setelah login) ke setiap request.
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("simago_token");
+  const token = sessionStorage.getItem("simago_token");
   if (token) {
     config.headers = config.headers ?? {};
     config.headers.Authorization = `Bearer ${token}`;
@@ -30,7 +30,7 @@ api.interceptors.response.use(
   (res) => res,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("simago_token");
+      sessionStorage.removeItem("simago_token");
       onUnauthorized?.();
     }
     return Promise.reject(error);

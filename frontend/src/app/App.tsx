@@ -5717,7 +5717,7 @@ export default function App() {
   >(null);
 
   function handleLogin(r: Role, name: string, token: string) {
-    localStorage.setItem("simago_token", token);
+    sessionStorage.setItem("simago_token", token);
     setRole(r);
     setUserName(name);
     setPage("dashboard");
@@ -5725,7 +5725,7 @@ export default function App() {
   }
 
   const handleLogout = useCallback(() => {
-    localStorage.removeItem("simago_token");
+    sessionStorage.removeItem("simago_token");
     setLoggedIn(false);
     setRole("admin");
     setPage("dashboard");
@@ -5744,7 +5744,7 @@ export default function App() {
 
   // Pulihkan sesi kalau token masih tersimpan (mis. setelah refresh halaman).
   useEffect(() => {
-    const token = localStorage.getItem("simago_token");
+    const token = sessionStorage.getItem("simago_token");
     if (!token) {
       setCheckingSession(false);
       return;
@@ -5757,7 +5757,7 @@ export default function App() {
         setUserName(data.data.nama as string);
         setLoggedIn(true);
       })
-      .catch(() => localStorage.removeItem("simago_token"))
+      .catch(() => sessionStorage.removeItem("simago_token"))
       .finally(() => setCheckingSession(false));
   }, []);
 
