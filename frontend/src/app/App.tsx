@@ -85,7 +85,10 @@ type CalonPage =
   | "dokumen"
   | "tracking"
   | "profil";
-type PesertaPage = CalonPage | "laporan-peserta" | "sertifikat-peserta";
+type PesertaPage =
+  | CalonPage
+  | "laporan-peserta"
+  | "sertifikat-peserta";
 type PembimbingPage =
   | "dashboard"
   | "absensi-verify"
@@ -1268,6 +1271,9 @@ function AdminDashboard() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-[#1B4332]">Dashboard Admin</h1>
+          <p className="text-sm text-[#6B7770]">
+            Periode Magang: Juli — September 2025
+          </p>
         </div>
         <button
           disabled={togglingPeriod}
@@ -1985,7 +1991,6 @@ function AdminSeleksi() {
 function AdminPenempatan() {
   const [divisions, setDivisions] = useState<Divisi[]>([]);
   const [peserta, setPeserta] = useState<PesertaItem[]>([]);
-  const [pembimbingList, setPembimbingList] = useState<PembimbingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -1994,14 +1999,12 @@ function AdminPenempatan() {
     setLoading(true);
     setError("");
     try {
-      const [div, ps, pb] = await Promise.all([
+      const [div, ps] = await Promise.all([
         api.get("/divisi"),
         api.get("/peserta", { params: { status: "aktif" } }),
-        api.get("/pembimbing"),
       ]);
       setDivisions(div.data.data);
       setPeserta(ps.data.data);
-      setPembimbingList(pb.data.data);
     } catch (err) {
       setError(apiErrorMessage(err, "Gagal memuat data penempatan."));
     } finally {
@@ -2020,18 +2023,6 @@ function AdminPenempatan() {
       load();
     } catch (err) {
       alert(apiErrorMessage(err, "Gagal menyimpan penempatan."));
-    } finally {
-      setSavingId(null);
-    }
-  }
-
-  async function assignPembimbing(pesertaId: number, pembimbingId: number) {
-    setSavingId(pesertaId);
-    try {
-      await api.put(`/peserta/${pesertaId}`, { pembimbing_id: pembimbingId });
-      load();
-    } catch (err) {
-      alert(apiErrorMessage(err, "Gagal menyimpan pembimbing."));
     } finally {
       setSavingId(null);
     }
@@ -2107,34 +2098,6 @@ function AdminPenempatan() {
                     </option>
                   ))}
                 </select>
-                <select
-                  value={p.pembimbing_id ?? ""}
-                  disabled={savingId === p.id}
-                  onChange={(e) =>
-                    assignPembimbing(p.id, Number(e.target.value))
-                  }
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20",
-                    p.pembimbing_id
-                      ? "border-[#1B4332]/15 bg-white text-[#3D4442]"
-                      : "border-red-300 bg-red-50 text-red-700",
-                  )}
-                >
-                  <option value="" disabled>
-                    Belum ada pembimbing
-                  </option>
-                  {pembimbingList
-                    .filter(
-                      (pb) =>
-                        pb.status === "aktif" && pb.divisi_id === p.divisi_id,
-                    )
-                    .map((pb) => (
-                      <option key={pb.id} value={pb.id}>
-                        {pb.nama}
-                        {pb.divisi_id !== p.divisi_id ? ` (${pb.divisi})` : ""}
-                      </option>
-                    ))}
-                </select>
               </div>
             ))}
           </div>
@@ -2157,7 +2120,6 @@ function AdminPembimbing() {
     password: "",
     nip: "",
     divisi_id: "",
-    status: "aktif",
   });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
@@ -2191,7 +2153,6 @@ function AdminPembimbing() {
       password: "",
       nip: "",
       divisi_id: divisi[0]?.id.toString() ?? "",
-      status: "aktif",
     });
     setFormError("");
     setFormOpen(true);
@@ -2205,7 +2166,6 @@ function AdminPembimbing() {
       password: "",
       nip: p.nip,
       divisi_id: p.divisi_id.toString(),
-      status: p.status,
     });
     setFormError("");
     setFormOpen(true);
@@ -2222,7 +2182,6 @@ function AdminPembimbing() {
           email: form.email,
           nip: form.nip,
           divisi_id: Number(form.divisi_id),
-          status: form.status,
         });
       } else {
         await api.post("/pembimbing", {
@@ -2326,18 +2285,6 @@ function AdminPembimbing() {
                 </option>
               ))}
             </select>
-            {editing && (
-              <select
-                value={form.status}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, status: e.target.value }))
-                }
-                className="px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none"
-              >
-                <option value="aktif">Aktif</option>
-                <option value="nonaktif">Nonaktif</option>
-              </select>
-            )}
             {formError && (
               <p className="sm:col-span-2 text-sm text-red-600">{formError}</p>
             )}
@@ -3422,8 +3369,7 @@ function FormPendaftaran({ setPage }: { setPage: (p: Page) => void }) {
     institusi: "",
     jurusan: "",
     semester: "",
-    tanggal_mulai: "",
-    tanggal_selesai: "",
+    periode: "Juli — September 2025",
     divisi_id: "",
     motivasi: "",
   });
@@ -3447,9 +3393,8 @@ function FormPendaftaran({ setPage }: { setPage: (p: Page) => void }) {
       e: React.ChangeEvent<
         HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
       >,
-    ) => {
+    ) =>
       setForm((f) => ({ ...f, [key]: e.target.value }));
-    };
 
   async function handleSubmit() {
     setSubmitting(true);
@@ -3635,26 +3580,16 @@ function FormPendaftaran({ setPage }: { setPage: (p: Page) => void }) {
             <h3 className="font-bold text-[#1B4332]">Step 3: Detail Magang</h3>
             <div>
               <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
-                Tanggal Mulai Magang
+                Periode Magang
               </label>
-              <input
-                type="date"
-                value={form.tanggal_mulai}
-                onChange={set("tanggal_mulai")}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
-                Tanggal Selesai Magang
-              </label>
-              <input
-                type="date"
-                value={form.tanggal_selesai}
-                onChange={set("tanggal_selesai")}
-                min={form.tanggal_mulai || undefined}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
-              />
+              <select
+                value={form.periode}
+                onChange={set("periode")}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none"
+              >
+                <option>Juli — September 2025</option>
+                <option>Oktober — Desember 2025</option>
+              </select>
             </div>
             <div>
               <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
@@ -3725,8 +3660,7 @@ function FormPendaftaran({ setPage }: { setPage: (p: Page) => void }) {
               {
                 section: "Detail Magang",
                 items: [
-                  ["Mulai", form.tanggal_mulai || "-"],
-                  ["Selesai", form.tanggal_selesai || "-"],
+                  ["Periode", form.periode],
                   ["Divisi", selectedDivisi?.nama ?? "-"],
                   ["Motivasi", form.motivasi || "-"],
                 ],
@@ -3765,13 +3699,7 @@ function FormPendaftaran({ setPage }: { setPage: (p: Page) => void }) {
             <ArrowLeft size={15} /> Sebelumnya
           </button>
           <button
-            disabled={
-              submitting ||
-              (step === 3 &&
-                (!form.divisi_id ||
-                  !form.tanggal_mulai ||
-                  !form.tanggal_selesai))
-            }
+            disabled={submitting || (step === 3 && !form.divisi_id)}
             onClick={() =>
               step === totalSteps
                 ? handleSubmit()
@@ -3882,8 +3810,8 @@ function UploadDokumen() {
       {sudahDikirim && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-[#D1FAE5] border border-[#1B4332]/20 text-[#1B4332] text-sm">
           <CheckCircle size={16} className="flex-shrink-0" /> Berkas sudah
-          dikirim dan sedang diverifikasi admin. Dokumen tidak bisa diubah lagi,
-          kecuali ada yang ditolak dan perlu diunggah ulang.
+          dikirim dan sedang diverifikasi admin. Dokumen tidak bisa diubah
+          lagi, kecuali ada yang ditolak dan perlu diunggah ulang.
         </div>
       )}
 
@@ -4015,7 +3943,8 @@ function UploadDokumen() {
               onClick={handleKirimBerkas}
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <Send size={14} /> {sending ? "Mengirim..." : "Kirim Berkas"}
+              <Send size={14} />{" "}
+              {sending ? "Mengirim..." : "Kirim Berkas"}
             </button>
           </div>
         )}
@@ -4231,9 +4160,31 @@ function AturanAbsensi() {
               <li>Pulang: 15.00 – 16.00</li>
             </ul>
             <p className="mt-1">
-              Di luar jam tersebut, absensi tetap bisa dikirim namun{" "}
+              Untuk jam absen, saat ini di luar jam Datang (07.00–08.00) dan
+              jam Pulang (15.00–16.00). Absensi tetap bisa dikirim, tapi{" "}
               <strong>tidak akan direkap</strong> saat penilaian.
             </p>
+          </div>
+
+          <div>
+            <p className="font-bold text-amber-900 uppercase tracking-wide text-xs mb-1">
+              Jam Kerja
+            </p>
+            <ul className="list-disc pl-4 space-y-0.5">
+              <li>Senin – Kamis: 07.30 – 15.30</li>
+              <li>Jum'at: 07.00 – 15.00</li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="font-bold text-amber-900 uppercase tracking-wide text-xs mb-1">
+              Seragam
+            </p>
+            <ul className="list-disc pl-4 space-y-0.5">
+              <li>Senin – Rabu: Bebas rapi berkemeja</li>
+              <li>Kamis: Baju batik</li>
+              <li>Jum'at: Baju olahraga (training & polo)</li>
+            </ul>
           </div>
 
           <div>
@@ -4358,6 +4309,13 @@ function AbsensiHariIni() {
   const todayEntry = entries.find((e) => e.tanggal === todayBackendFormat);
   const sudahDatang = !!todayEntry?.jam_masuk;
   const sudahPulang = !!todayEntry?.jam_keluar;
+  const sudahIzinSakitLupa =
+    !!todayEntry &&
+    (todayEntry.sift === "izin" ||
+      todayEntry.sift === "sakit" ||
+      todayEntry.sift === "lupa_absen");
+  const labelIzinSakitLupa =
+    SIFT_OPTIONS.find((o) => o.value === todayEntry?.sift)?.label ?? "";
 
   const perluBukti =
     sift === "izin" || sift === "sakit" || sift === "lupa_absen";
@@ -4470,26 +4428,36 @@ function AbsensiHariIni() {
           <p className="font-bold text-[#1B4332]">Absensi Hari Ini</p>
           <p className="text-sm text-[#6B7770]">{todayLabel}</p>
           <div className="flex flex-wrap gap-2 mt-1.5">
-            <span
-              className={cn(
-                "px-2 py-0.5 rounded-full text-xs font-semibold",
-                sudahDatang
-                  ? "bg-[#D1FAE5] text-[#1B4332]"
-                  : "bg-gray-100 text-gray-500",
-              )}
-            >
-              Datang {sudahDatang ? `✓ ${todayEntry?.jam_masuk}` : "— belum"}
-            </span>
-            <span
-              className={cn(
-                "px-2 py-0.5 rounded-full text-xs font-semibold",
-                sudahPulang
-                  ? "bg-[#D1FAE5] text-[#1B4332]"
-                  : "bg-gray-100 text-gray-500",
-              )}
-            >
-              Pulang {sudahPulang ? `✓ ${todayEntry?.jam_keluar}` : "— belum"}
-            </span>
+            {sudahIzinSakitLupa ? (
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#D1FAE5] text-[#1B4332]">
+                Sudah Absensi ✓ {labelIzinSakitLupa}
+              </span>
+            ) : (
+              <>
+                <span
+                  className={cn(
+                    "px-2 py-0.5 rounded-full text-xs font-semibold",
+                    sudahDatang
+                      ? "bg-[#D1FAE5] text-[#1B4332]"
+                      : "bg-gray-100 text-gray-500",
+                  )}
+                >
+                  Datang{" "}
+                  {sudahDatang ? `✓ ${todayEntry?.jam_masuk}` : "— belum"}
+                </span>
+                <span
+                  className={cn(
+                    "px-2 py-0.5 rounded-full text-xs font-semibold",
+                    sudahPulang
+                      ? "bg-[#D1FAE5] text-[#1B4332]"
+                      : "bg-gray-100 text-gray-500",
+                  )}
+                >
+                  Pulang{" "}
+                  {sudahPulang ? `✓ ${todayEntry?.jam_keluar}` : "— belum"}
+                </span>
+              </>
+            )}
           </div>
         </div>
         <button
@@ -5294,7 +5262,7 @@ function PembimbingDashboard() {
   );
 }
 
-function AbsensiVerify() {
+function AbsensiVerify({ canVerify = true }: { canVerify?: boolean }) {
   const [entries, setEntries] = useState<AbsensiItem[]>([]);
   const [onlyPending, setOnlyPending] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -5332,9 +5300,23 @@ function AbsensiVerify() {
     }
   }
 
+  const columns = [
+    "Peserta",
+    "Tanggal",
+    "Sift",
+    "Masuk",
+    "Keluar",
+    "Keterangan",
+    "Bukti",
+    "Status",
+    ...(canVerify ? ["Aksi"] : []),
+  ];
+
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-bold text-[#1B4332]">Verifikasi Absensi</h1>
+      <h1 className="text-xl font-bold text-[#1B4332]">
+        {canVerify ? "Verifikasi Absensi" : "Riwayat Absensi"}
+      </h1>
       <div className="flex gap-3 flex-wrap">
         <select
           value={onlyPending ? "menunggu" : "semua"}
@@ -5357,14 +5339,7 @@ function AbsensiVerify() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#1B4332]/10">
-                  {[
-                    "Peserta",
-                    "Tanggal",
-                    "Masuk",
-                    "Keluar",
-                    "Status",
-                    "Aksi",
-                  ].map((h) => (
+                  {columns.map((h) => (
                     <th
                       key={h}
                       className="text-left py-2.5 px-3 text-[#6B7770] text-xs font-semibold uppercase tracking-wide"
@@ -5384,31 +5359,62 @@ function AbsensiVerify() {
                       {e.nama}
                     </td>
                     <td className="py-3 px-3 text-[#6B7770]">{e.tanggal}</td>
+                    <td className="py-3 px-3 text-[#6B7770] capitalize">
+                      {SIFT_OPTIONS.find((o) => o.value === e.sift)?.label ??
+                        "-"}
+                      {e.di_luar_jam && (
+                        <span
+                          title="Di luar jam yang ditentukan, tidak direkap"
+                          className="ml-1 text-amber-600"
+                        >
+                          ⚠
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3 px-3 font-mono text-sm text-[#3D4442]">
                       {e.jam_masuk ?? "-"}
                     </td>
                     <td className="py-3 px-3 font-mono text-sm text-[#3D4442]">
                       {e.jam_keluar ?? "-"}
                     </td>
+                    <td className="py-3 px-3 text-[#6B7770] max-w-[200px]">
+                      <span className="line-clamp-2">
+                        {e.keterangan ?? "-"}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">
+                      {e.bukti_url ? (
+                        <button
+                          onClick={() => openAuthenticatedFile(e.bukti_url!)}
+                          className="inline-flex items-center gap-1 text-[#1B4332] font-semibold hover:underline"
+                        >
+                          <Eye size={13} /> Lihat
+                        </button>
+                      ) : (
+                        <span className="text-[#6B7770]">-</span>
+                      )}
+                    </td>
                     <td className="py-3 px-3">
                       <StatusBadge
                         status={e.diverifikasi ? "disetujui" : "menunggu"}
                       />
                     </td>
-                    <td className="py-3 px-3">
-                      {!e.diverifikasi && (
-                        <div className="flex gap-1">
-                          <button
-                            disabled={busyId === e.id}
-                            onClick={() => verify(e.id)}
-                            className="p-1.5 rounded-lg bg-[#D1FAE5] text-[#1B4332] hover:bg-[#A8C3AD] transition-colors disabled:opacity-50"
-                            title="Verifikasi"
-                          >
-                            <Check size={13} />
-                          </button>
-                        </div>
-                      )}
-                    </td>
+                    {canVerify && (
+                      <td className="py-3 px-3">
+                        {!e.diverifikasi && (
+                          <div className="flex gap-1">
+                            <button
+                              disabled={busyId === e.id}
+                              onClick={() => verify(e.id)}
+                              className="p-1.5 rounded-lg bg-[#D1FAE5] text-[#1B4332] hover:bg-[#A8C3AD] transition-colors disabled:opacity-50"
+                              title="Verifikasi"
+                            >
+                              <Check size={13} />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -5927,7 +5933,7 @@ export default function App() {
         case "monitoring":
           return <AdminMonitoring />;
         case "absensi-riwayat":
-          return <AbsensiVerify />;
+          return <AbsensiVerify canVerify={false} />;
         case "sertifikat":
           return <AdminSertifikat />;
         case "laporan":
