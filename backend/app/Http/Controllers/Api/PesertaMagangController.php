@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PesertaMagangResource;
+use App\Models\Notifikasi;
 use App\Models\Pendaftaran;
 use App\Models\PesertaMagang;
 use Illuminate\Http\Request;
@@ -26,7 +27,8 @@ class PesertaMagangController extends Controller
 
         $pendaftaran = Pendaftaran::findOrFail($data['pendaftaran_id']);
         abort_if($pendaftaran->status !== 'disetujui', 422, 'Pendaftaran belum disetujui.');
-        abort_if($pendaftaran->pesertaMagang, 422, 'Pendaftaran ini sudah ditempatkan.');
+        // abort_if expects a boolean; cast the relation result to bool to satisfy static analysis
+        abort_if((bool) $pendaftaran->pesertaMagang, 422, 'Pendaftaran ini sudah ditempatkan.');
 
         $peserta = PesertaMagang::create([
             'pendaftaran_id' => $pendaftaran->id,
@@ -83,9 +85,21 @@ class PesertaMagangController extends Controller
             'status' => ['sometimes', 'in:aktif,selesai,diberhentikan'],
         ]);
 
-        $pesertaMagang->update($data);
+        $pembimbingBaruDitugaskan = isset($data['pembimbing_id']) && $data['pembimbing_id'] !== $pesertaMagang->pembimbing_id;
 
-        return new PesertaMagangResource($pesertaMagang->load(['mahasiswa.user', 'divisi', 'pembimbing.user']));
+        $pesertaMagang->update($data);
+        $pesertaMagang->load(['mahasiswa.user', 'divisi', 'pembimbing.user']);
+
+        if ($pembimbingBaruDitugaskan && $pesertaMagang->pembimbing) {
+            Notifikasi::kirim(
+                $pesertaMagang->pembimbing->user,
+                'Anda Mendapatkan Peserta Magang Baru',
+                "{$pesertaMagang->mahasiswa->user->name} ditugaskan sebagai peserta bimbingan Anda di divisi {$pesertaMagang->divisi->nama}.",
+                halaman: 'dashboard'
+            );
+        }
+
+        return new PesertaMagangResource($pesertaMagang);
     }
 
     /** Peserta: data magang milik sendiri. */

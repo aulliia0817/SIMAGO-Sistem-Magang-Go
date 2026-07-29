@@ -74,10 +74,15 @@ class PendaftaranController extends Controller
             $user->update(['name' => $data['nama']]);
         }
 
+        $periode = \Carbon\Carbon::parse($data['tanggal_mulai'])->translatedFormat('d M Y')
+            . ' – ' . \Carbon\Carbon::parse($data['tanggal_selesai'])->translatedFormat('d M Y');
+
         $pendaftaran = Pendaftaran::create([
             'mahasiswa_id' => $mahasiswa->id,
             'divisi_id' => $data['divisi_id'],
-            'periode' => $data['periode'],
+            'periode' => $periode,
+            'tanggal_mulai' => $data['tanggal_mulai'],
+            'tanggal_selesai' => $data['tanggal_selesai'],
             'motivasi' => $data['motivasi'] ?? null,
             'status' => 'menunggu',
         ]);
@@ -109,30 +114,6 @@ class PendaftaranController extends Controller
         return new PendaftaranResource($pendaftaran);
     }
 
-    public function kirimDokumen(Request $request)
-    {
-        $pendaftaran = $request->user()->mahasiswa?->pendaftarans()->with('dokumens')->latest()->first();
-        abort_unless($pendaftaran, 404, 'Belum ada pendaftaran.');
-
-        if ($pendaftaran->dokumen_dikirim_at) {
-            return new PendaftaranResource($pendaftaran);
-        }
-
-        $belumLengkap = $pendaftaran->dokumens->contains(fn ($d) => !$d->file_path);
-        abort_if($belumLengkap, 422, 'Semua dokumen wajib diunggah terlebih dahulu sebelum bisa dikirim.');
-
-        $pendaftaran->update(['dokumen_dikirim_at' => now()]);
-
-        Notifikasi::kirimKeRole(
-            'admin',
-            'Berkas Pendaftaran Dikirim',
-            "{$request->user()->name} telah mengirim seluruh berkas pendaftaran untuk diverifikasi.",
-            halaman: 'verifikasi'
-        );
-
-        return new PendaftaranResource($pendaftaran);
-    }
-
     /**
      * Admin: proses seleksi (ubah status). Jika disetujui, otomatis membuat
      * PesertaMagang dengan pembimbing & periode yang ditentukan.
@@ -153,8 +134,8 @@ class PendaftaranController extends Controller
                     'mahasiswa_id' => $pendaftaran->mahasiswa_id,
                     'divisi_id' => $pendaftaran->divisi_id,
                     'pembimbing_id' => null,
-                    'tanggal_mulai' => now()->toDateString(),
-                    'tanggal_selesai' => now()->addMonths(3)->toDateString(),
+                    'tanggal_mulai' => $pendaftaran->tanggal_mulai ?? now()->toDateString(),
+                    'tanggal_selesai' => $pendaftaran->tanggal_selesai ?? now()->addMonths(3)->toDateString(),
                     'status' => 'aktif',
                 ]);
 

@@ -86,8 +86,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::put('/pengaturan/periode', [PengaturanController::class, 'updatePeriode']);
 
-        // Penempatan: tempatkan pendaftar yang sudah disetujui ke divisi + pembimbing
-        Route::post('/peserta', [PesertaMagangController::class, 'store']);
     });
 
     // ── Bersama (admin + pembimbing) ──────────────────────────────────────

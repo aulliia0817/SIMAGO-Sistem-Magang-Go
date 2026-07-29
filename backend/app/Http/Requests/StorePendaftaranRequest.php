@@ -21,7 +21,8 @@ class StorePendaftaranRequest extends FormRequest
             'institusi' => ['required', 'string', 'max:150'],
             'jurusan' => ['required', 'string', 'max:150'],
             'semester' => ['nullable', 'string', 'max:10'],
-            'periode' => ['required', 'string', 'max:100'],
+            'tanggal_mulai' => ['required', 'date'],
+            'tanggal_selesai' => ['required', 'date', 'after:tanggal_mulai'],
             'divisi_id' => ['required', 'exists:divisis,id'],
             'motivasi' => ['nullable', 'string'],
         ];
