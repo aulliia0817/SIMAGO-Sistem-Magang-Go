@@ -85,10 +85,7 @@ type CalonPage =
   | "dokumen"
   | "tracking"
   | "profil";
-type PesertaPage =
-  | CalonPage
-  | "laporan-peserta"
-  | "sertifikat-peserta";
+type PesertaPage = CalonPage | "laporan-peserta" | "sertifikat-peserta";
 type PembimbingPage =
   | "dashboard"
   | "absensi-verify"
@@ -1271,9 +1268,6 @@ function AdminDashboard() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-bold text-[#1B4332]">Dashboard Admin</h1>
-          <p className="text-sm text-[#6B7770]">
-            Periode Magang: Juli — September 2025
-          </p>
         </div>
         <button
           disabled={togglingPeriod}
@@ -1991,6 +1985,7 @@ function AdminSeleksi() {
 function AdminPenempatan() {
   const [divisions, setDivisions] = useState<Divisi[]>([]);
   const [peserta, setPeserta] = useState<PesertaItem[]>([]);
+  const [pembimbingList, setPembimbingList] = useState<PembimbingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -1999,12 +1994,14 @@ function AdminPenempatan() {
     setLoading(true);
     setError("");
     try {
-      const [div, ps] = await Promise.all([
+      const [div, ps, pb] = await Promise.all([
         api.get("/divisi"),
         api.get("/peserta", { params: { status: "aktif" } }),
+        api.get("/pembimbing"),
       ]);
       setDivisions(div.data.data);
       setPeserta(ps.data.data);
+      setPembimbingList(pb.data.data);
     } catch (err) {
       setError(apiErrorMessage(err, "Gagal memuat data penempatan."));
     } finally {
@@ -2023,6 +2020,18 @@ function AdminPenempatan() {
       load();
     } catch (err) {
       alert(apiErrorMessage(err, "Gagal menyimpan penempatan."));
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function assignPembimbing(pesertaId: number, pembimbingId: number) {
+    setSavingId(pesertaId);
+    try {
+      await api.put(`/peserta/${pesertaId}`, { pembimbing_id: pembimbingId });
+      load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Gagal menyimpan pembimbing."));
     } finally {
       setSavingId(null);
     }
@@ -2098,6 +2107,34 @@ function AdminPenempatan() {
                     </option>
                   ))}
                 </select>
+                <select
+                  value={p.pembimbing_id ?? ""}
+                  disabled={savingId === p.id}
+                  onChange={(e) =>
+                    assignPembimbing(p.id, Number(e.target.value))
+                  }
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20",
+                    p.pembimbing_id
+                      ? "border-[#1B4332]/15 bg-white text-[#3D4442]"
+                      : "border-red-300 bg-red-50 text-red-700",
+                  )}
+                >
+                  <option value="" disabled>
+                    Belum ada pembimbing
+                  </option>
+                  {pembimbingList
+                    .filter(
+                      (pb) =>
+                        pb.status === "aktif" && pb.divisi_id === p.divisi_id,
+                    )
+                    .map((pb) => (
+                      <option key={pb.id} value={pb.id}>
+                        {pb.nama}
+                        {pb.divisi_id !== p.divisi_id ? ` (${pb.divisi})` : ""}
+                      </option>
+                    ))}
+                </select>
               </div>
             ))}
           </div>
@@ -2120,6 +2157,7 @@ function AdminPembimbing() {
     password: "",
     nip: "",
     divisi_id: "",
+    status: "aktif",
   });
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
@@ -2153,6 +2191,7 @@ function AdminPembimbing() {
       password: "",
       nip: "",
       divisi_id: divisi[0]?.id.toString() ?? "",
+      status: "aktif",
     });
     setFormError("");
     setFormOpen(true);
@@ -2166,6 +2205,7 @@ function AdminPembimbing() {
       password: "",
       nip: p.nip,
       divisi_id: p.divisi_id.toString(),
+      status: p.status,
     });
     setFormError("");
     setFormOpen(true);
@@ -2182,6 +2222,7 @@ function AdminPembimbing() {
           email: form.email,
           nip: form.nip,
           divisi_id: Number(form.divisi_id),
+          status: form.status,
         });
       } else {
         await api.post("/pembimbing", {
@@ -2285,6 +2326,18 @@ function AdminPembimbing() {
                 </option>
               ))}
             </select>
+            {editing && (
+              <select
+                value={form.status}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, status: e.target.value }))
+                }
+                className="px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none"
+              >
+                <option value="aktif">Aktif</option>
+                <option value="nonaktif">Nonaktif</option>
+              </select>
+            )}
             {formError && (
               <p className="sm:col-span-2 text-sm text-red-600">{formError}</p>
             )}
@@ -3369,7 +3422,8 @@ function FormPendaftaran({ setPage }: { setPage: (p: Page) => void }) {
     institusi: "",
     jurusan: "",
     semester: "",
-    periode: "Juli — September 2025",
+    tanggal_mulai: "",
+    tanggal_selesai: "",
     divisi_id: "",
     motivasi: "",
   });
@@ -3580,16 +3634,26 @@ function FormPendaftaran({ setPage }: { setPage: (p: Page) => void }) {
             <h3 className="font-bold text-[#1B4332]">Step 3: Detail Magang</h3>
             <div>
               <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
-                Periode Magang
+                Tanggal Mulai Magang
               </label>
-              <select
-                value={form.periode}
-                onChange={set("periode")}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none"
-              >
-                <option>Juli — September 2025</option>
-                <option>Oktober — Desember 2025</option>
-              </select>
+              <input
+                type="date"
+                value={form.tanggal_mulai}
+                onChange={set("tanggal_mulai")}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
+                Tanggal Selesai Magang
+              </label>
+              <input
+                type="date"
+                value={form.tanggal_selesai}
+                onChange={set("tanggal_selesai")}
+                min={form.tanggal_mulai || undefined}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+              />
             </div>
             <div>
               <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
@@ -3660,7 +3724,8 @@ function FormPendaftaran({ setPage }: { setPage: (p: Page) => void }) {
               {
                 section: "Detail Magang",
                 items: [
-                  ["Periode", form.periode],
+                  ["Mulai", form.tanggal_mulai || "-"],
+                  ["Selesai", form.tanggal_selesai || "-"],
                   ["Divisi", selectedDivisi?.nama ?? "-"],
                   ["Motivasi", form.motivasi || "-"],
                 ],
@@ -3699,7 +3764,13 @@ function FormPendaftaran({ setPage }: { setPage: (p: Page) => void }) {
             <ArrowLeft size={15} /> Sebelumnya
           </button>
           <button
-            disabled={submitting || (step === 3 && !form.divisi_id)}
+            disabled={
+              submitting ||
+              (step === 3 &&
+                (!form.divisi_id ||
+                  !form.tanggal_mulai ||
+                  !form.tanggal_selesai))
+            }
             onClick={() =>
               step === totalSteps
                 ? handleSubmit()
@@ -3810,8 +3881,8 @@ function UploadDokumen() {
       {sudahDikirim && (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-[#D1FAE5] border border-[#1B4332]/20 text-[#1B4332] text-sm">
           <CheckCircle size={16} className="flex-shrink-0" /> Berkas sudah
-          dikirim dan sedang diverifikasi admin. Dokumen tidak bisa diubah
-          lagi, kecuali ada yang ditolak dan perlu diunggah ulang.
+          dikirim dan sedang diverifikasi admin. Dokumen tidak bisa diubah lagi,
+          kecuali ada yang ditolak dan perlu diunggah ulang.
         </div>
       )}
 
@@ -3943,8 +4014,7 @@ function UploadDokumen() {
               onClick={handleKirimBerkas}
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <Send size={14} />{" "}
-              {sending ? "Mengirim..." : "Kirim Berkas"}
+              <Send size={14} /> {sending ? "Mengirim..." : "Kirim Berkas"}
             </button>
           </div>
         )}
@@ -4142,129 +4212,8 @@ function siftDalamJam(sift: string): boolean {
   return true;
 }
 
-function AturanAbsensi() {
-  return (
-    <Card className="border-amber-200 bg-amber-50">
-      <div className="flex items-start gap-3">
-        <AlertCircle
-          size={18}
-          className="text-amber-700 flex-shrink-0 mt-0.5"
-        />
-        <div className="space-y-4 text-sm text-amber-900">
-          <div>
-            <p className="font-bold text-amber-900 uppercase tracking-wide text-xs mb-1">
-              Batas Pengisian Absensi
-            </p>
-            <ul className="list-disc pl-4 space-y-0.5">
-              <li>Datang: 07.00 – 08.00</li>
-              <li>Pulang: 15.00 – 16.00</li>
-            </ul>
-            <p className="mt-1">
-              Untuk jam absen, saat ini di luar jam Datang (07.00–08.00) dan
-              jam Pulang (15.00–16.00). Absensi tetap bisa dikirim, tapi{" "}
-              <strong>tidak akan direkap</strong> saat penilaian.
-            </p>
-          </div>
-
-          <div>
-            <p className="font-bold text-amber-900 uppercase tracking-wide text-xs mb-1">
-              Jam Kerja
-            </p>
-            <ul className="list-disc pl-4 space-y-0.5">
-              <li>Senin – Kamis: 07.30 – 15.30</li>
-              <li>Jum'at: 07.00 – 15.00</li>
-            </ul>
-          </div>
-
-          <div>
-            <p className="font-bold text-amber-900 uppercase tracking-wide text-xs mb-1">
-              Seragam
-            </p>
-            <ul className="list-disc pl-4 space-y-0.5">
-              <li>Senin – Rabu: Bebas rapi berkemeja</li>
-              <li>Kamis: Baju batik</li>
-              <li>Jum'at: Baju olahraga (training & polo)</li>
-            </ul>
-          </div>
-
-          <div>
-            <p className="font-bold text-amber-900 uppercase tracking-wide text-xs mb-1">
-              Ketentuan Izin
-            </p>
-            <p>
-              Diterima jika mengisi keterangan sesuai bukti foto yang
-              dilampirkan, dan bukti foto wajib mengaktifkan fitur{" "}
-              <strong>timestamp</strong>. Jika tidak sesuai, izin tidak akan
-              diterima.
-            </p>
-          </div>
-
-          <div>
-            <p className="font-bold text-amber-900 uppercase tracking-wide text-xs mb-1">
-              Ketentuan Sakit
-            </p>
-            <p>
-              Diterima jika mengisi keterangan sesuai bukti foto yang
-              dilampirkan, dan bukti foto wajib mengaktifkan fitur{" "}
-              <strong>timestamp</strong> (contoh: foto obat, surat keterangan
-              dokter, kondisi, lokasi berobat). Jika tidak sesuai, sakit tidak
-              akan diterima.
-            </p>
-          </div>
-
-          <div>
-            <p className="font-bold text-amber-900 uppercase tracking-wide text-xs mb-1">
-              Ketentuan Lupa Absen
-            </p>
-            <p>
-              Digunakan saat masuk tetapi pengisian absen di luar jam Datang
-              atau Pulang. Gunakan bukti foto yang sudah diaktifkan fitur{" "}
-              <strong>timestamp</strong>. Jika tidak sesuai, akan dianggap tidak
-              masuk.
-            </p>
-          </div>
-
-          <div className="p-3 rounded-lg bg-amber-100/70 border border-amber-200">
-            <p>
-              Selain ketentuan di atas, jika Izin, Sakit, atau Lupa Absen{" "}
-              <strong>wajib menghubungi Pembimbing Lapangan</strong> Pak Rico
-              Arimurti Respati dan konfirmasi ke Mas Robi.
-            </p>
-            <p className="mt-1.5">
-              <strong>Catatan:</strong> Jika tidak memenuhi ketentuan di atas
-              dan tetap melakukan absensi, absensi tidak akan direkap saat
-              penilaian. Jangan melakukan pengisian absensi secara berulang,
-              cukup 1 kali.
-            </p>
-          </div>
-
-          <div>
-            <p className="font-bold text-amber-900 uppercase tracking-wide text-xs mb-1">
-              Wajib Diisi
-            </p>
-            <ul className="list-disc pl-4 space-y-0.5">
-              <li>Hari — Senin, Selasa, Rabu, Kamis, Jum'at</li>
-              <li>Sift — Datang, Pulang, Izin, Sakit, Lupa Absen</li>
-              <li>
-                Keterangan — wajib diisi jika Izin, Sakit, atau Lupa Absen. Jika
-                tidak diisi, dianggap tidak masuk.
-              </li>
-              <li>
-                Dokumen pendukung — wajib diunggah jika Izin, Sakit, atau Lupa
-                Absen (PDF, gambar, atau video). Untuk gambar/video wajib
-                merekam lokasi/GPS. Jika tidak diisi, dianggap tidak masuk.
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
 function AbsensiHariIni() {
   const [entries, setEntries] = useState<AbsensiItem[]>([]);
-  const [showRules, setShowRules] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
@@ -4408,17 +4357,45 @@ function AbsensiHariIni() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-end">
-        <button
-          onClick={() => setShowRules((s) => !s)}
-          className="flex items-center gap-1.5 text-sm text-[#1B4332] font-semibold hover:underline"
-        >
-          <AlertCircle size={14} />
-          {showRules ? "Tutup Syarat & Ketentuan" : "Lihat Syarat & Ketentuan"}
-        </button>
-      </div>
+      <Card className="border-amber-200 bg-amber-50 mb-5">
+        <div className="flex items-start gap-3">
+          <div className="space-y-4 text-sm text-amber-900">
+            <div>
+              <p className="font-bold uppercase tracking-wide text-xs mb-1">
+                Batas Pengisian Absensi
+              </p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                <li>Datang: 07.00 – 08.00</li>
+                <li>Pulang: 15.00 – 16.00</li>
+              </ul>
+              <p className="mt-1">
+                Di luar jam tersebut tidak dapat melakukan absensi.
+              </p>
+            </div>
 
-      {showRules && <AturanAbsensi />}
+            <div>
+              <p className="font-bold uppercase tracking-wide text-xs mb-1">
+                Jam Kerja
+              </p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                <li>Senin – Kamis: 07.30 – 15.30</li>
+                <li>Jum'at: 07.00 – 15.00</li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="font-bold uppercase tracking-wide text-xs mb-1">
+                Seragam
+              </p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                <li>Senin – Rabu: Bebas rapi berkemeja</li>
+                <li>Kamis: Baju Batik</li>
+                <li>Jum'at: Baju olahraga (training & polo)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </Card>
 
       <Card className="flex items-center gap-4 flex-wrap">
         <div className="w-12 h-12 rounded-xl bg-[#D1FAE5] flex items-center justify-center text-[#1B4332] flex-shrink-0">
@@ -4540,13 +4517,56 @@ function AbsensiHariIni() {
                   {sift === "datang"
                     ? "Datang (07.00–08.00)"
                     : "Pulang (15.00–16.00)"}
-                  . Absensi tetap bisa dikirim, tapi tidak akan direkap saat
-                  penilaian.
+                  . Tidak bisa mengirim absensi.
                 </div>
               )}
 
             {perluBukti && (
               <>
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 space-y-3">
+                  <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wide">
+                    Ketentuan Pengajuan
+                  </p>
+
+                  <div className="space-y-2.5 text-xs text-amber-900">
+                    <div>
+                      <p className="font-semibold mb-0.5">Izin</p>
+                      <p>
+                        Diterima jika mengisi keterangan sesuai bukti foto yang
+                        dilampirkan, dan bukti foto wajib mengaktifkan fitur{" "}
+                        <strong>timestamp</strong>. Jika tidak sesuai, izin
+                        tidak akan diterima.
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="font-semibold mb-0.5">Sakit</p>
+                      <p>
+                        Diterima jika mengisi keterangan sesuai bukti foto yang
+                        dilampirkan, dan bukti foto wajib mengaktifkan fitur{" "}
+                        <strong>timestamp</strong> (contoh: foto obat, surat
+                        keterangan dokter, kondisi, lokasi berobat). Jika tidak
+                        sesuai, sakit tidak akan diterima.
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="font-semibold mb-0.5">Lupa Absen</p>
+                      <p>
+                        Digunakan saat masuk tetapi pengisian absen di luar jam
+                        Datang atau Pulang. Gunakan bukti foto yang sudah
+                        diaktifkan fitur <strong>timestamp</strong>. Jika tidak
+                        sesuai, akan dianggap tidak masuk.
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="pt-2.5 border-t border-amber-200 text-xs text-amber-900">
+                    Selain ketentuan di atas, jika Izin, Sakit, atau Lupa Absen{" "}
+                    <strong>wajib menghubungi Pembimbing Lapangan</strong>.
+                  </p>
+                </div>
+
                 <div>
                   <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
                     Keterangan *
@@ -4559,6 +4579,7 @@ function AbsensiHariIni() {
                     className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20 resize-none"
                   />
                 </div>
+
                 <div>
                   <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
                     Dokumen Pendukung *
