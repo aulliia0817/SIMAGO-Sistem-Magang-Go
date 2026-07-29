@@ -75,6 +75,7 @@ type AdminPage =
   | "pembimbing-akun"
   | "divisi"
   | "monitoring"
+  | "absensi-riwayat"
   | "sertifikat"
   | "laporan"
   | "profil";
@@ -86,7 +87,6 @@ type CalonPage =
   | "profil";
 type PesertaPage =
   | CalonPage
-  | "absensi"
   | "laporan-peserta"
   | "sertifikat-peserta";
 type PembimbingPage =
@@ -370,6 +370,11 @@ function getNavItems(role: Role): NavItem[] {
         page: "monitoring",
       },
       {
+        icon: <Fingerprint size={18} />,
+        label: "Riwayat Absensi",
+        page: "absensi-riwayat",
+      },
+      {
         icon: <Award size={18} />,
         label: "Kelola Sertifikat",
         page: "sertifikat",
@@ -424,7 +429,6 @@ function getNavItems(role: Role): NavItem[] {
   if (role === "peserta") {
     return [
       ...base,
-      { icon: <Fingerprint size={18} />, label: "Absensi", page: "absensi" },
       {
         icon: <BookOpen size={18} />,
         label: "Laporan",
@@ -3342,6 +3346,8 @@ function CalonDashboard({ userStatus }: { userStatus: "calon" | "peserta" }) {
           </div>
         </Card>
       )}
+
+      {isPeserta && <AbsensiHariIni />}
     </div>
   );
 }
@@ -4234,10 +4240,8 @@ function AturanAbsensi() {
   );
 }
 
-function PesertaAbsensi() {
+function AbsensiHariIni() {
   const [entries, setEntries] = useState<AbsensiItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [showRules, setShowRules] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -4249,15 +4253,12 @@ function PesertaAbsensi() {
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
     try {
       const { data } = await api.get("/absensi/saya");
       setEntries(data.data);
-    } catch (err) {
-      setError(apiErrorMessage(err, "Gagal memuat riwayat absensi."));
-    } finally {
-      setLoading(false);
+    } catch {
+      // widget ini hanya perlu status hari ini; kalau gagal, cukup diamkan
+      // saja supaya tidak mengganggu tampilan dashboard secara keseluruhan.
     }
   }, []);
 
@@ -4378,8 +4379,7 @@ function PesertaAbsensi() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-bold text-[#1B4332]">Absensi</h1>
+      <div className="flex items-center justify-end">
         <button
           onClick={() => setShowRules((s) => !s)}
           className="flex items-center gap-1.5 text-sm text-[#1B4332] font-semibold hover:underline"
@@ -4556,102 +4556,6 @@ function PesertaAbsensi() {
           </form>
         </Card>
       )}
-
-      <Card>
-        <h3 className="font-bold text-[#1B4332] mb-4">Riwayat Absensi</h3>
-        {loading ? (
-          <LoadingState />
-        ) : error ? (
-          <ErrorState message={error} onRetry={load} />
-        ) : entries.length === 0 ? (
-          <EmptyState label="Belum ada riwayat absensi." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[#1B4332]/10">
-                  {[
-                    "Tanggal",
-                    "Sift",
-                    "Check In",
-                    "Check Out",
-                    "Keterangan",
-                    "Bukti",
-                    "Status",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="text-left py-2.5 px-3 text-[#6B7770] text-xs font-semibold uppercase tracking-wide"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((e) => (
-                  <tr
-                    key={e.id}
-                    className="border-b border-[#1B4332]/5 hover:bg-[#F1F3F1]/50 transition-colors"
-                  >
-                    <td className="py-3 px-3 font-medium text-[#3D4442]">
-                      {e.tanggal}
-                      {e.hari && (
-                        <span className="text-[#6B7770] font-normal">
-                          {" "}
-                          — {e.hari}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-3 text-[#6B7770] capitalize">
-                      {SIFT_OPTIONS.find((o) => o.value === e.sift)?.label ??
-                        "-"}
-                      {e.di_luar_jam && (
-                        <span
-                          title="Di luar jam yang ditentukan, tidak direkap"
-                          className="ml-1 text-amber-600"
-                        >
-                          ⚠
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3 px-3 font-mono text-sm text-[#3D4442]">
-                      {e.jam_masuk ?? "-"}
-                    </td>
-                    <td className="py-3 px-3 font-mono text-sm text-[#3D4442]">
-                      {e.jam_keluar ?? "-"}
-                    </td>
-                    <td className="py-3 px-3 text-[#6B7770] max-w-[220px]">
-                      <span className="line-clamp-2">
-                        {e.keterangan ?? "-"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3">
-                      {e.bukti_url ? (
-                        <a
-                          href={e.bukti_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-[#1B4332] font-semibold hover:underline"
-                        >
-                          <Eye size={13} /> Lihat
-                        </a>
-                      ) : (
-                        <span className="text-[#6B7770]">-</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-3">
-                      <StatusBadge
-                        status={e.diverifikasi ? "disetujui" : "menunggu"}
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
     </div>
   );
 }
@@ -5951,6 +5855,8 @@ export default function App() {
           return <AdminDivisi />;
         case "monitoring":
           return <AdminMonitoring />;
+        case "absensi-riwayat":
+          return <AbsensiVerify />;
         case "sertifikat":
           return <AdminSertifikat />;
         case "laporan":
@@ -5989,8 +5895,6 @@ export default function App() {
           return <TrackingStatus />;
         case "profil":
           return <PesertaProfil />;
-        case "absensi":
-          return <PesertaAbsensi />;
         case "laporan-peserta":
           return <PesertaLaporan />;
         case "sertifikat-peserta":
