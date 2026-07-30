@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Notifikasi extends Model
 {
-    protected $fillable = ['user_id', 'judul', 'pesan', 'halaman', 'dibaca', 'dedupe_key'];
+    protected $fillable = ['user_id', 'judul', 'pesan', 'halaman', 'pendaftaran_id', 'dibaca', 'dedupe_key'];
 
     protected function casts(): array
     {
@@ -18,12 +18,17 @@ class Notifikasi extends Model
         return $this->belongsTo(User::class);
     }
 
-    public static function kirim(User $user, string $judul, string $pesan, ?string $dedupeKey = null, ?string $halaman = null): void
+    public function pendaftaran()
+    {
+        return $this->belongsTo(Pendaftaran::class);
+    }
+
+    public static function kirim(User $user, string $judul, string $pesan, ?string $dedupeKey = null, ?string $halaman = null, ?int $pendaftaranId = null): void
     {
         if ($dedupeKey) {
             static::firstOrCreate(
                 ['user_id' => $user->id, 'dedupe_key' => $dedupeKey],
-                ['judul' => $judul, 'pesan' => $pesan, 'halaman' => $halaman]
+                ['judul' => $judul, 'pesan' => $pesan, 'halaman' => $halaman, 'pendaftaran_id' => $pendaftaranId]
             );
 
             return;
@@ -34,13 +39,14 @@ class Notifikasi extends Model
             'judul' => $judul,
             'pesan' => $pesan,
             'halaman' => $halaman,
+            'pendaftaran_id' => $pendaftaranId,
         ]);
     }
 
-    public static function kirimKeRole(string $role, string $judul, string $pesan, ?string $halaman = null): void
+    public static function kirimKeRole(string $role, string $judul, string $pesan, ?string $halaman = null, ?int $pendaftaranId = null): void
     {
         User::where('role', $role)->get()->each(
-            fn(User $u) => static::kirim($u, $judul, $pesan, halaman: $halaman)
+            fn(User $u) => static::kirim($u, $judul, $pesan, halaman: $halaman, pendaftaranId: $pendaftaranId)
         );
     }
 

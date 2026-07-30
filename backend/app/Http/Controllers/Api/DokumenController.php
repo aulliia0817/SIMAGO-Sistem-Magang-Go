@@ -49,7 +49,8 @@ class DokumenController extends Controller
             'admin',
             'Calon Peserta Memperbarui Data Pendaftaran',
             "{$request->user()->name} mengunggah/memperbarui dokumen \"{$dokumen->jenis}\".",
-            halaman: 'verifikasi'
+            halaman: 'verifikasi',
+            pendaftaranId: $pendaftaran->id
         );
 
         return new DokumenResource($dokumen);

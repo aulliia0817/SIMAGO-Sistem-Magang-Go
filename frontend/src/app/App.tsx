@@ -103,6 +103,7 @@ type NotifikasiItem = {
   judul: string;
   pesan: string;
   halaman: string | null;
+  pendaftaran_id: number | null;
   dibaca: boolean;
   waktu: string;
   tanggal: string;
@@ -561,7 +562,7 @@ function Sidebar({
 function NotificationBell({
   onNavigate,
 }: {
-  onNavigate: (page: Page) => void;
+  onNavigate: (page: Page, pendaftaranId?: number | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotifikasiItem[]>([]);
@@ -637,7 +638,7 @@ function NotificationBell({
   function handleClickItem(n: NotifikasiItem) {
     if (!n.dibaca) markRead(n.id);
     if (n.halaman) {
-      onNavigate(n.halaman as Page);
+      onNavigate(n.halaman as Page, n.pendaftaran_id);
       setOpen(false);
     }
   }
@@ -737,15 +738,17 @@ function TopBar({
   role,
   userName,
   setPage,
+  onNotifNavigate,
 }: {
   role: Role;
   userName: string;
   setPage: (p: Page) => void;
+  onNotifNavigate: (page: Page, pendaftaranId?: number | null) => void;
 }) {
   return (
     <header className="h-14 shrink-0 bg-white border-b border-[#1B4332]/10 flex items-center px-4 gap-4">
       <div className="flex-1" />
-      <NotificationBell onNavigate={setPage} />
+      <NotificationBell onNavigate={onNotifNavigate} />
       <div
         onClick={() => setPage("profil" as Page)}
         className="flex items-center gap-2 pl-3 border-l border-[#1B4332]/10 cursor-pointer hover:opacity-75 transition-opacity"
@@ -775,6 +778,7 @@ function Layout({
   setPage,
   onLogout,
   userName,
+  onNotifNavigate,
   children,
 }: {
   role: Role;
@@ -782,6 +786,7 @@ function Layout({
   setPage: (p: Page) => void;
   onLogout: () => void;
   userName: string;
+  onNotifNavigate: (page: Page, pendaftaranId?: number | null) => void;
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -796,7 +801,12 @@ function Layout({
         onLogout={onLogout}
       />
       <div className="ml-20 flex flex-col h-screen">
-        <TopBar role={role} userName={userName} setPage={setPage} />
+        <TopBar
+          role={role}
+          userName={userName}
+          setPage={setPage}
+          onNotifNavigate={onNotifNavigate}
+        />
         <main className="flex-1 min-h-0 p-5 lg:p-6 overflow-y-auto">
           {children}
         </main>
@@ -1503,9 +1513,6 @@ function AdminPendaftar({
         <h1 className="text-xl font-bold text-[#1B4332]">
           Manajemen Data Pendaftar
         </h1>
-        <button className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors">
-          <Download size={15} /> Export
-        </button>
       </div>
 
       <Card>
@@ -5906,6 +5913,16 @@ export default function App() {
     handleLogout();
   }
 
+  // Dipakai saat notifikasi diklik: kalau notifikasi bawa pendaftaran_id
+  // (mis. "Calon Peserta Memperbarui Data Pendaftaran"), langsung pilih
+  // pendaftaran itu supaya halaman Verifikasi Berkas tidak kosong.
+  function handleNotifNavigate(page: Page, pendaftaranId?: number | null) {
+    if (typeof pendaftaranId === "number") {
+      setSelectedPendaftaranId(pendaftaranId);
+    }
+    setPage(page);
+  }
+
   // Pulihkan sesi kalau token masih tersimpan (mis. setelah refresh halaman).
   useEffect(() => {
     const token = sessionStorage.getItem("simago_token");
@@ -6010,6 +6027,7 @@ export default function App() {
       setPage={setPage}
       onLogout={doLogout}
       userName={userName}
+      onNotifNavigate={handleNotifNavigate}
     >
       {renderPage()}
     </Layout>
