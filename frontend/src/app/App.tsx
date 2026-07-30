@@ -103,7 +103,6 @@ type NotifikasiItem = {
   judul: string;
   pesan: string;
   halaman: string | null;
-  pendaftaran_id: number | null;
   dibaca: boolean;
   waktu: string;
   tanggal: string;
@@ -562,7 +561,7 @@ function Sidebar({
 function NotificationBell({
   onNavigate,
 }: {
-  onNavigate: (page: Page, pendaftaranId?: number | null) => void;
+  onNavigate: (page: Page) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotifikasiItem[]>([]);
@@ -638,7 +637,7 @@ function NotificationBell({
   function handleClickItem(n: NotifikasiItem) {
     if (!n.dibaca) markRead(n.id);
     if (n.halaman) {
-      onNavigate(n.halaman as Page, n.pendaftaran_id);
+      onNavigate(n.halaman as Page);
       setOpen(false);
     }
   }
@@ -738,17 +737,15 @@ function TopBar({
   role,
   userName,
   setPage,
-  onNotifNavigate,
 }: {
   role: Role;
   userName: string;
   setPage: (p: Page) => void;
-  onNotifNavigate: (page: Page, pendaftaranId?: number | null) => void;
 }) {
   return (
     <header className="h-14 shrink-0 bg-white border-b border-[#1B4332]/10 flex items-center px-4 gap-4">
       <div className="flex-1" />
-      <NotificationBell onNavigate={onNotifNavigate} />
+      <NotificationBell onNavigate={setPage} />
       <div
         onClick={() => setPage("profil" as Page)}
         className="flex items-center gap-2 pl-3 border-l border-[#1B4332]/10 cursor-pointer hover:opacity-75 transition-opacity"
@@ -778,7 +775,6 @@ function Layout({
   setPage,
   onLogout,
   userName,
-  onNotifNavigate,
   children,
 }: {
   role: Role;
@@ -786,7 +782,6 @@ function Layout({
   setPage: (p: Page) => void;
   onLogout: () => void;
   userName: string;
-  onNotifNavigate: (page: Page, pendaftaranId?: number | null) => void;
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -801,12 +796,7 @@ function Layout({
         onLogout={onLogout}
       />
       <div className="ml-20 flex flex-col h-screen">
-        <TopBar
-          role={role}
-          userName={userName}
-          setPage={setPage}
-          onNotifNavigate={onNotifNavigate}
-        />
+        <TopBar role={role} userName={userName} setPage={setPage} />
         <main className="flex-1 min-h-0 p-5 lg:p-6 overflow-y-auto">
           {children}
         </main>
@@ -1513,6 +1503,9 @@ function AdminPendaftar({
         <h1 className="text-xl font-bold text-[#1B4332]">
           Manajemen Data Pendaftar
         </h1>
+        <button className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors">
+          <Download size={15} /> Export
+        </button>
       </div>
 
       <Card>
@@ -4197,6 +4190,10 @@ const SIFT_OPTIONS: { value: string; label: string }[] = [
   { value: "sakit", label: "Sakit" },
   { value: "lupa_absen", label: "Lupa Absen" },
 ];
+// Datang, Izin, Sakit, dan Lupa Absen saling eksklusif — peserta hanya boleh
+// memilih salah satu dari keempatnya, satu kali, per hari. "Pulang" dikunci
+// terpisah berdasarkan jam saja (lihat jamTerkunci di bawah).
+const GRUP_UTAMA_SIFT = ["datang", "izin", "sakit", "lupa_absen"];
 
 function todayHariIndonesia() {
   const days = [
@@ -4275,19 +4272,52 @@ function AbsensiHariIni() {
 
   const perluBukti =
     sift === "izin" || sift === "sakit" || sift === "lupa_absen";
-  const diLuarJam =
-    (sift === "datang" || sift === "pulang") && !siftDalamJam(sift);
 
-  function alreadyDoneToday(s: string) {
-    if (!todayEntry) return false;
-    if (s === "datang") return sudahDatang;
-    if (s === "pulang") return sudahPulang;
-    if (s === "izin") return todayEntry.status === "izin";
-    if (s === "sakit") return todayEntry.status === "sakit";
-    if (s === "lupa_absen") return todayEntry.sift === "lupa_absen";
+  const sudahIsiGrupUtamaHariIni =
+    !!todayEntry && GRUP_UTAMA_SIFT.includes(todayEntry.sift ?? "");
+
+  // Datang & Pulang hanya boleh dikirim di jam yang ditentukan. Izin/Sakit/
+  // Lupa Absen tidak punya batas jam sama sekali.
+  function jamTerkunci(s: string): boolean {
+    if (s === "datang" || s === "pulang") return !siftDalamJam(s);
     return false;
   }
-  const sudahMengisiSiftIni = alreadyDoneToday(sift);
+
+  // Kembalikan alasan kenapa sebuah opsi sift tidak bisa dipilih/dikirim,
+  // atau null kalau opsi itu masih valid untuk dipilih.
+  function alasanTerkunci(s: string): string | null {
+    if (GRUP_UTAMA_SIFT.includes(s) && sudahIsiGrupUtamaHariIni) {
+      return "Kamu sudah mengisi absensi hari ini (Datang/Izin/Sakit/Lupa Absen hanya bisa dipilih salah satu, satu kali per hari).";
+    }
+    if (s === "pulang" && sudahPulang) {
+      return "Kamu sudah mengisi absensi Pulang hari ini.";
+    }
+    if (jamTerkunci(s)) {
+      return `Saat ini di luar jam ${
+        s === "datang" ? "Datang (07.00–08.00)" : "Pulang (15.00–16.00)"
+      }. Opsi ini terkunci dan tidak bisa dikirim.`;
+    }
+    return null;
+  }
+
+  function optionTerkunci(s: string): boolean {
+    return alasanTerkunci(s) !== null;
+  }
+
+  const diLuarJam = jamTerkunci(sift);
+  const alasanSiftSaatIni = alasanTerkunci(sift);
+  const sudahMengisiSiftIni = alasanSiftSaatIni !== null;
+
+  // Kalau default/pilihan saat ini ternyata terkunci (misal form dibuka pas
+  // sudah lewat jam Datang), otomatis lompat ke opsi pertama yang masih valid.
+  useEffect(() => {
+    if (!showForm) return;
+    if (optionTerkunci(sift)) {
+      const fallback = SIFT_OPTIONS.find((o) => !optionTerkunci(o.value));
+      if (fallback) setSift(fallback.value);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showForm, todayEntry]);
 
   function resetForm() {
     setSift("datang");
@@ -4310,7 +4340,7 @@ function AbsensiHariIni() {
     }
     if (sudahMengisiSiftIni) {
       setFormError(
-        "Kamu sudah mengisi absensi untuk sift ini hari ini. Tidak perlu mengisi berulang.",
+        alasanSiftSaatIni ?? "Sift ini tidak bisa dipilih saat ini.",
       );
       return;
     }
@@ -4376,7 +4406,8 @@ function AbsensiHariIni() {
                 <li>Pulang: 15.00 – 16.00</li>
               </ul>
               <p className="mt-1">
-                Di luar jam tersebut tidak dapat melakukan absensi.
+                Di luar jam tersebut tidak dapat melakukan absensi. Khusus
+                Izin, Sakit, dan Lupa Absen tidak ada batas jam.
               </p>
             </div>
 
@@ -4500,33 +4531,25 @@ function AbsensiHariIni() {
                   className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none"
                 >
                   {SIFT_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
+                    <option
+                      key={o.value}
+                      value={o.value}
+                      disabled={optionTerkunci(o.value)}
+                    >
                       {o.label}
+                      {optionTerkunci(o.value) ? " (terkunci)" : ""}
                     </option>
                   ))}
                 </select>
               </div>
             </div>
 
-            {sudahMengisiSiftIni && (
+            {alasanSiftSaatIni && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
-                <AlertCircle size={14} className="flex-shrink-0" /> Kamu sudah
-                mengisi sift ini hari ini. Tidak perlu mengisi berulang.
+                <AlertCircle size={14} className="flex-shrink-0" />{" "}
+                {alasanSiftSaatIni}
               </div>
             )}
-
-            {!sudahMengisiSiftIni &&
-              (sift === "datang" || sift === "pulang") &&
-              diLuarJam && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs">
-                  <AlertCircle size={14} className="flex-shrink-0" /> Saat ini
-                  di luar jam{" "}
-                  {sift === "datang"
-                    ? "Datang (07.00–08.00)"
-                    : "Pulang (15.00–16.00)"}
-                  . Tidak bisa mengirim absensi.
-                </div>
-              )}
 
             {perluBukti && (
               <>
@@ -5913,16 +5936,6 @@ export default function App() {
     handleLogout();
   }
 
-  // Dipakai saat notifikasi diklik: kalau notifikasi bawa pendaftaran_id
-  // (mis. "Calon Peserta Memperbarui Data Pendaftaran"), langsung pilih
-  // pendaftaran itu supaya halaman Verifikasi Berkas tidak kosong.
-  function handleNotifNavigate(page: Page, pendaftaranId?: number | null) {
-    if (typeof pendaftaranId === "number") {
-      setSelectedPendaftaranId(pendaftaranId);
-    }
-    setPage(page);
-  }
-
   // Pulihkan sesi kalau token masih tersimpan (mis. setelah refresh halaman).
   useEffect(() => {
     const token = sessionStorage.getItem("simago_token");
@@ -6027,7 +6040,6 @@ export default function App() {
       setPage={setPage}
       onLogout={doLogout}
       userName={userName}
-      onNotifNavigate={handleNotifNavigate}
     >
       {renderPage()}
     </Layout>

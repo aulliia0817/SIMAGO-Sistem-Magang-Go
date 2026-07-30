@@ -4,7 +4,6 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 class AbsensiResource extends JsonResource
 {
@@ -22,7 +21,7 @@ class AbsensiResource extends JsonResource
             'status' => $this->status,
             'sift' => $this->sift,
             'keterangan' => $this->keterangan,
-            'bukti_url' => $this->bukti_path ? Storage::disk('public')->url($this->bukti_path) : null,
+            'bukti_url' => $this->bukti_path ? "/absensi/{$this->id}/file" : null,
             'di_luar_jam' => (bool) $this->di_luar_jam,
             'diverifikasi' => $this->diverifikasi,
         ];

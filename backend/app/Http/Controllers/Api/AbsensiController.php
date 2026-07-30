@@ -95,4 +95,25 @@ class AbsensiController extends Controller
 
         return new AbsensiResource($absensi);
     }
+
+    /**
+     * Buka/unduh bukti foto absensi (izin/sakit/lupa absen) langsung lewat backend
+     * (tidak bergantung pada symlink storage:link). Diizinkan untuk admin/pembimbing
+     * (semua bukti) atau peserta pemilik absensi itu sendiri.
+     */
+    public function file(Request $request, Absensi $absensi)
+    {
+        $user = $request->user();
+        $isOwner = ($absensi->pesertaMagang->mahasiswa->user_id ?? null) === $user->id;
+
+        abort_unless(
+            in_array($user->role, ['admin', 'pembimbing']) || $isOwner,
+            403,
+            'Anda tidak memiliki akses ke bukti absensi ini.'
+        );
+        abort_unless($absensi->bukti_path, 404, 'Bukti absensi ini belum diunggah.');
+        abort_unless(\Storage::disk('public')->exists($absensi->bukti_path), 404, 'File tidak ditemukan di server.');
+
+        return \Storage::disk('public')->response($absensi->bukti_path);
+    }
 }
