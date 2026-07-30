@@ -176,7 +176,19 @@ class PendaftaranController extends Controller
 
         $namaFile = 'surat-' . \Illuminate\Support\Str::slug($nomorSurat) . '-' . $pendaftaran->id . '.pdf';
         $path = 'surat/' . $namaFile;
-        \Storage::disk('public')->put($path, $pdf->output());
+
+        $tersimpan = \Storage::disk('public')->put($path, $pdf->output());
+
+        // Disk 'public' diset `'throw' => false` (config/filesystems.php), jadi
+        // put() TIDAK melempar exception kalau gagal menulis — cuma balikin
+        // false. Tanpa pengecekan ini, pendaftaran akan tetap tercatat
+        // "surat terbit" walau file-nya sebenarnya tidak pernah tersimpan.
+        if (!$tersimpan || !\Storage::disk('public')->exists($path)) {
+            throw new \RuntimeException(
+                'Gagal menyimpan file surat ke storage (folder storage/app/public mungkin tidak bisa ditulis). '
+                . 'Pastikan folder storage/app/public ada dan writable, lalu coba kirim ulang.'
+            );
+        }
 
         $pendaftaran->update([
             'nomor_surat' => $nomorSurat,
@@ -209,7 +221,12 @@ class PendaftaranController extends Controller
         abort_unless($pendaftaran->surat_path, 404, 'Surat belum diterbitkan.');
         abort_unless(\Storage::disk('public')->exists($pendaftaran->surat_path), 404, 'File tidak ditemukan di server.');
 
-        return \Storage::disk('public')->response($pendaftaran->surat_path, "Surat-{$pendaftaran->nomor_surat}.pdf");
+        // Nomor surat asli (mis. "421/123/2026") dipakai apa adanya di UI, tapi
+        // TIDAK boleh dipakai langsung sebagai nama file unduhan — Symfony
+        // melempar error kalau nama file mengandung "/" atau "\".
+        $namaUnduh = str_replace(['/', '\\'], '-', "Surat-{$pendaftaran->nomor_surat}.pdf");
+
+        return \Storage::disk('public')->response($pendaftaran->surat_path, $namaUnduh);
     }
 
     public function destroy(Pendaftaran $pendaftaran)

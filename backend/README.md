@@ -2,7 +2,7 @@
 
 Backend REST API untuk **SIMAGO (Sistem Magang Go)** — menggantikan seluruh
 mock data pada frontend React dengan data nyata dari MySQL, sesuai
-permintaan: *"Jangan mengubah tampilan UI/UX, ubah hanya sumber datanya."*
+permintaan: _"Jangan mengubah tampilan UI/UX, ubah hanya sumber datanya."_
 
 Proyek ini ditulis lengkap secara manual (migration, model, controller,
 request validation, resource, route) mengikuti struktur Laravel 12.
@@ -28,18 +28,18 @@ php artisan serve            # berjalan di http://127.0.0.1:8000
 
 ## Akun demo (dari seeder)
 
-| Role       | Email                  | Password       |
-|------------|-------------------------|----------------|
-| Admin      | admin@simago.id         | admin123       |
-| Pembimbing | pembimbing@simago.id    | pembimbing123  |
-| Calon      | calon@simago.id         | calon123       |
-| Peserta    | peserta@simago.id       | peserta123     |
+| Role       | Email                | Password      |
+| ---------- | -------------------- | ------------- |
+| Admin      | admin@simago.id      | admin123      |
+| Pembimbing | pembimbing@simago.id | pembimbing123 |
+| Calon      | calon@simago.id      | calon123      |
+| Peserta    | peserta@simago.id    | peserta123    |
 
 Sama persis dengan `DEMO_ACCOUNTS` yang sebelumnya di-hardcode di frontend.
 
 ## Autentikasi
 
-Menggunakan **Laravel Sanctum** dalam mode *token* (bukan cookie SPA), agar
+Menggunakan **Laravel Sanctum** dalam mode _token_ (bukan cookie SPA), agar
 mudah dipakai dari Vite dev server maupun hosting terpisah:
 
 1. `POST /api/login` → mengembalikan `{ token, user }`.
@@ -89,4 +89,6 @@ CRUD) agar setiap bagian bisa dites sebelum lanjut, daripada menimpa
 seluruh file sekaligus tanpa bisa dijalankan di sini (sandbox ini tidak
 punya PHP/MySQL untuk saya jalankan & uji langsung).
 
-Beri tahu saya kapan siap lanjut ke Fase 2 (refactor frontend ke Axios).
+## Instalasi tambahan
+
+omposer require barryvdh/laravel-dompdf
