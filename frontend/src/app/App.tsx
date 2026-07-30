@@ -2022,7 +2022,7 @@ function AdminVerifikasi({
                   onClick={() => openAuthenticatedFile(p.surat_url!)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1B4332] text-white text-xs font-semibold hover:bg-[#2D5A45] transition-colors"
                 >
-                  <Download size={13} /> Unduh Surat
+                  <Eye size={13} /> Lihat Surat
                 </button>
               )}
               <button
