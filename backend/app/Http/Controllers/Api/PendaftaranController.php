@@ -145,17 +145,71 @@ class PendaftaranController extends Controller
 
         $pendaftaran->load(['mahasiswa.user', 'divisi']);
         if (in_array($data['status'], ['disetujui', 'ditolak'])) {
-            Notifikasi::kirim(
-                $pendaftaran->mahasiswa->user,
-                'Hasil Seleksi Pendaftaran',
-                $data['status'] === 'disetujui'
-                ? "Selamat! Pendaftaran magang Anda di divisi {$pendaftaran->divisi->nama} telah DITERIMA."
-                : 'Mohon maaf, pendaftaran magang Anda tidak lolos seleksi kali ini.',
-                halaman: 'tracking'
-            );
+            $this->terbitkanSuratKeputusan($pendaftaran, $data['nomor_surat']);
         }
 
         return new PendaftaranResource($pendaftaran);
+    }
+
+    /**
+     * Buat PDF surat balasan (diterima/ditolak) dari template
+     * resources/views/surat/keputusan.blade.php, simpan ke storage, lalu
+     * beri tahu calon lewat notifikasi (dengan pendaftaran_id supaya
+     * notifikasi bisa langsung mengarah ke halaman Tracking Status-nya).
+     */
+    protected function terbitkanSuratKeputusan(Pendaftaran $pendaftaran, string $nomorSurat): void
+    {
+        $diterima = $pendaftaran->status === 'disetujui';
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('surat.keputusan', [
+            'nomorSurat' => $nomorSurat,
+            'diterima' => $diterima,
+            'tanggal' => now()->locale('id')->translatedFormat('d F Y'),
+            'nama' => $pendaftaran->mahasiswa->user->name ?? '-',
+            'institusi' => $pendaftaran->mahasiswa->institusi ?? '-',
+            'jurusan' => $pendaftaran->mahasiswa->jurusan ?? '-',
+            'divisi' => $pendaftaran->divisi->nama ?? '-',
+            'periode' => $pendaftaran->periode,
+            'tanggalMulai' => optional($pendaftaran->tanggal_mulai)->translatedFormat('d M Y'),
+            'tanggalSelesai' => optional($pendaftaran->tanggal_selesai)->translatedFormat('d M Y'),
+        ])->setPaper('a4');
+
+        $namaFile = 'surat-' . \Illuminate\Support\Str::slug($nomorSurat) . '-' . $pendaftaran->id . '.pdf';
+        $path = 'surat/' . $namaFile;
+        \Storage::disk('public')->put($path, $pdf->output());
+
+        $pendaftaran->update([
+            'nomor_surat' => $nomorSurat,
+            'surat_path' => $path,
+            'surat_dikirim_at' => now(),
+        ]);
+
+        Notifikasi::kirim(
+            $pendaftaran->mahasiswa->user,
+            'Surat Keputusan Magang Telah Terbit',
+            $diterima
+            ? "Selamat! Surat penerimaan magang Anda (No. {$nomorSurat}) di divisi {$pendaftaran->divisi->nama} sudah dapat diunduh."
+            : "Surat pemberitahuan hasil seleksi magang Anda (No. {$nomorSurat}) sudah dapat diunduh.",
+            halaman: 'tracking',
+            pendaftaranId: $pendaftaran->id
+        );
+    }
+
+    /** Unduh file PDF surat balasan lewat backend (lihat catatan di DokumenController::file). */
+    public function suratFile(Request $request, Pendaftaran $pendaftaran)
+    {
+        $user = $request->user();
+        $isOwner = ($pendaftaran->mahasiswa->user_id ?? null) === $user->id;
+
+        abort_unless(
+            in_array($user->role, ['admin', 'pembimbing']) || $isOwner,
+            403,
+            'Anda tidak memiliki akses ke surat ini.'
+        );
+        abort_unless($pendaftaran->surat_path, 404, 'Surat belum diterbitkan.');
+        abort_unless(\Storage::disk('public')->exists($pendaftaran->surat_path), 404, 'File tidak ditemukan di server.');
+
+        return \Storage::disk('public')->response($pendaftaran->surat_path, "Surat-{$pendaftaran->nomor_surat}.pdf");
     }
 
     public function destroy(Pendaftaran $pendaftaran)

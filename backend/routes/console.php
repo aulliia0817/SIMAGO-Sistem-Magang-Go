@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('notifikasi:cek-periode-magang')->dailyAt('07:00');
+Schedule::command('notifikasi:cek-batas-pengumuman')->dailyAt('07:00');

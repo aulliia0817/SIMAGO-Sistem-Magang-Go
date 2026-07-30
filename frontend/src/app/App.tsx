@@ -32,6 +32,7 @@ import {
   CheckCircle,
   AlertCircle,
   Calendar,
+  Phone,
   BookOpen,
   Fingerprint,
   Star,
@@ -70,7 +71,6 @@ type AdminPage =
   | "dashboard"
   | "pendaftar"
   | "verifikasi"
-  | "seleksi"
   | "penempatan"
   | "pembimbing-akun"
   | "divisi"
@@ -103,6 +103,7 @@ type NotifikasiItem = {
   judul: string;
   pesan: string;
   halaman: string | null;
+  pendaftaran_id: number | null;
   dibaca: boolean;
   waktu: string;
   tanggal: string;
@@ -113,13 +114,19 @@ type PendaftarItem = {
   nama: string;
   institusi: string;
   jurusan: string;
+  no_hp: string;
   divisi: string;
   divisi_id: number;
   periode: string;
   motivasi: string | null;
   tanggal: string;
   status: string;
+  batas_pengumuman: string;
+  sisa_hari_pengumuman: number | null;
   catatan_admin: string | null;
+  nomor_surat: string | null;
+  surat_dikirim_at: string | null;
+  surat_url: string | null;
   dokumen?: DokumenItem[];
 };
 type DokumenItem = {
@@ -343,8 +350,8 @@ function getNavItems(role: Role): NavItem[] {
       { icon: <Users size={18} />, label: "Data Pendaftar", page: "pendaftar" },
       {
         icon: <ClipboardList size={18} />,
-        label: "Proses Seleksi",
-        page: "seleksi",
+        label: "Verifikasi Berkas",
+        page: "verifikasi",
       },
       {
         icon: <MapPin size={18} />,
@@ -561,7 +568,7 @@ function Sidebar({
 function NotificationBell({
   onNavigate,
 }: {
-  onNavigate: (page: Page) => void;
+  onNavigate: (page: Page, pendaftaranId?: number | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotifikasiItem[]>([]);
@@ -637,7 +644,7 @@ function NotificationBell({
   function handleClickItem(n: NotifikasiItem) {
     if (!n.dibaca) markRead(n.id);
     if (n.halaman) {
-      onNavigate(n.halaman as Page);
+      onNavigate(n.halaman as Page, n.pendaftaran_id);
       setOpen(false);
     }
   }
@@ -737,15 +744,17 @@ function TopBar({
   role,
   userName,
   setPage,
+  onNotifNavigate,
 }: {
   role: Role;
   userName: string;
   setPage: (p: Page) => void;
+  onNotifNavigate: (page: Page, pendaftaranId?: number | null) => void;
 }) {
   return (
     <header className="h-14 shrink-0 bg-white border-b border-[#1B4332]/10 flex items-center px-4 gap-4">
       <div className="flex-1" />
-      <NotificationBell onNavigate={setPage} />
+      <NotificationBell onNavigate={onNotifNavigate} />
       <div
         onClick={() => setPage("profil" as Page)}
         className="flex items-center gap-2 pl-3 border-l border-[#1B4332]/10 cursor-pointer hover:opacity-75 transition-opacity"
@@ -775,6 +784,7 @@ function Layout({
   setPage,
   onLogout,
   userName,
+  onNotifNavigate,
   children,
 }: {
   role: Role;
@@ -782,6 +792,7 @@ function Layout({
   setPage: (p: Page) => void;
   onLogout: () => void;
   userName: string;
+  onNotifNavigate: (page: Page, pendaftaranId?: number | null) => void;
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -796,7 +807,12 @@ function Layout({
         onLogout={onLogout}
       />
       <div className="ml-20 flex flex-col h-screen">
-        <TopBar role={role} userName={userName} setPage={setPage} />
+        <TopBar
+          role={role}
+          userName={userName}
+          setPage={setPage}
+          onNotifNavigate={onNotifNavigate}
+        />
         <main className="flex-1 min-h-0 p-5 lg:p-6 overflow-y-auto">
           {children}
         </main>
@@ -1503,9 +1519,6 @@ function AdminPendaftar({
         <h1 className="text-xl font-bold text-[#1B4332]">
           Manajemen Data Pendaftar
         </h1>
-        <button className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors">
-          <Download size={15} /> Export
-        </button>
       </div>
 
       <Card>
@@ -1546,14 +1559,15 @@ function AdminPendaftar({
               <thead>
                 <tr className="border-b border-[#1B4332]/10">
                   {[
-                    "#",
+                    "No",
                     "Nama",
                     "Institusi",
                     "Jurusan",
                     "Divisi",
                     "Tgl Daftar",
                     "Status",
-                    "Verifikasi Berkas",
+                    "Batas Pengumuman",
+                    "Info Pendaftar",
                   ].map((h) => (
                     <th
                       key={h}
@@ -1582,17 +1596,38 @@ function AdminPendaftar({
                       <StatusBadge status={p.status} />
                     </td>
                     <td className="py-3 px-3">
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => {
-                            onSelectPendaftaran(p.id);
-                            setPage("verifikasi");
-                          }}
-                          className="p-1.5 rounded-lg hover:bg-[#D1FAE5] text-[#1B4332] transition-colors"
-                          title="Lihat detail"
-                        >
-                          <Eye size={14} />
-                        </button>
+                      <div
+                        className={cn(
+                          p.status === "menunggu" &&
+                            p.sisa_hari_pengumuman !== null &&
+                            p.sisa_hari_pengumuman <= 3
+                            ? "text-red-600"
+                            : "text-[#6B7770]",
+                        )}
+                      >
+                        <p className="text-xs font-medium">
+                          {p.batas_pengumuman}
+                        </p>
+                        {p.status === "menunggu" &&
+                          p.sisa_hari_pengumuman !== null && (
+                            <p className="text-[11px] mt-0.5 opacity-80">
+                              {p.sisa_hari_pengumuman === 0
+                                ? "Hari ini terakhir"
+                                : `Sisa ${p.sisa_hari_pengumuman} hari`}
+                            </p>
+                          )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 text-[#6B7770]">
+                      <div className="flex flex-col gap-1 text-xs">
+                        <span className="flex items-center gap-1.5">
+                          <Calendar size={12} className="shrink-0" />
+                          {p.periode}
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <Phone size={12} className="shrink-0" />
+                          {p.no_hp || "-"}
+                        </span>
                       </div>
                     </td>
                   </tr>
@@ -1606,7 +1641,45 @@ function AdminPendaftar({
   );
 }
 
-function AdminVerifikasi({ pendaftaranId }: { pendaftaranId: number | null }) {
+function AdminVerifikasi({
+  pendaftaranId,
+  onSelectPendaftaran,
+}: {
+  pendaftaranId: number | null;
+  onSelectPendaftaran: (id: number | null) => void;
+}) {
+  // ── Mode daftar (belum ada pendaftaran yang dipilih) ──────────────────────
+  // Menggantikan halaman "Proses Seleksi" yang lama: daftar pendaftar dengan
+  // pencarian/filter status, klik salah satu untuk masuk ke detail verifikasi
+  // + keputusan seleksi di bawah.
+  const [list, setList] = useState<PendaftarItem[]>([]);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState("");
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("semua");
+
+  const loadList = useCallback(async () => {
+    setListLoading(true);
+    setListError("");
+    try {
+      const { data } = await api.get("/pendaftar", {
+        params: { search, status: filterStatus, per_page: 50 },
+      });
+      setList(data.data);
+    } catch (err) {
+      setListError(apiErrorMessage(err, "Gagal memuat data pendaftar."));
+    } finally {
+      setListLoading(false);
+    }
+  }, [search, filterStatus]);
+
+  useEffect(() => {
+    if (pendaftaranId) return;
+    const t = setTimeout(loadList, 300); // debounce pencarian
+    return () => clearTimeout(t);
+  }, [pendaftaranId, loadList]);
+
+  // ── Mode detail (satu pendaftaran dipilih) ────────────────────────────────
   const [p, setP] = useState<PendaftarItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -1650,12 +1723,146 @@ function AdminVerifikasi({ pendaftaranId }: { pendaftaranId: number | null }) {
     }
   }
 
+  // ── Keputusan seleksi & surat balasan ─────────────────────────────────────
+  const [decision, setDecision] = useState<"" | "disetujui" | "ditolak">("");
+  const [nomorSurat, setNomorSurat] = useState("");
+  const [editingKeputusan, setEditingKeputusan] = useState(false);
+  const [sendingKeputusan, setSendingKeputusan] = useState(false);
+
+  useEffect(() => {
+    if (!p) return;
+    const sudahDiputuskan = p.status === "disetujui" || p.status === "ditolak";
+    setDecision(sudahDiputuskan ? (p.status as "disetujui" | "ditolak") : "");
+    setNomorSurat(p.nomor_surat ?? "");
+    setEditingKeputusan(!sudahDiputuskan);
+  }, [p]);
+
+  async function kirimKeputusan() {
+    if (!pendaftaranId || !decision || !nomorSurat.trim()) return;
+    setSendingKeputusan(true);
+    try {
+      await api.put(`/pendaftar/${pendaftaranId}`, {
+        status: decision,
+        nomor_surat: nomorSurat.trim(),
+      });
+      load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Gagal mengirim keputusan & surat."));
+    } finally {
+      setSendingKeputusan(false);
+    }
+  }
+
   if (!pendaftaranId) {
     return (
       <div className="space-y-5">
         <h1 className="text-xl font-bold text-[#1B4332]">Verifikasi Berkas</h1>
         <Card>
-          <EmptyState label='Pilih pendaftar dari halaman "Data Pendaftar" (ikon mata) untuk memverifikasi berkasnya.' />
+          <div className="flex flex-wrap gap-3 mb-5">
+            <div className="relative flex-1 min-w-48">
+              <Search
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7770]"
+              />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Cari nama pendaftar..."
+                className="w-full pl-9 pr-3 py-2 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+              />
+            </div>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none"
+            >
+              <option value="semua">Semua Status</option>
+              <option value="menunggu">Menunggu</option>
+              <option value="disetujui">Disetujui</option>
+              <option value="ditolak">Ditolak</option>
+            </select>
+          </div>
+
+          {listLoading ? (
+            <LoadingState />
+          ) : listError ? (
+            <ErrorState message={listError} onRetry={loadList} />
+          ) : list.length === 0 ? (
+            <EmptyState label="Tidak ada pendaftar yang cocok." />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#1B4332]/10">
+                    {[
+                      "Nama",
+                      "Institusi",
+                      "Divisi",
+                      "Kelengkapan Berkas",
+                      "Status",
+                      "Aksi",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="text-left py-2.5 px-3 text-[#6B7770] text-xs font-semibold uppercase tracking-wide"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((item) => {
+                    const total = item.dokumen?.length ?? 0;
+                    const done =
+                      item.dokumen?.filter((d) => d.status === "terverifikasi")
+                        .length ?? 0;
+                    const pct = total ? Math.round((done / total) * 100) : 0;
+                    return (
+                      <tr
+                        key={item.id}
+                        className="border-b border-[#1B4332]/5 hover:bg-[#F1F3F1]/50 transition-colors"
+                      >
+                        <td className="py-3 px-3 font-semibold text-[#1B4332]">
+                          {item.nama}
+                        </td>
+                        <td className="py-3 px-3 text-[#6B7770]">
+                          {item.institusi}
+                        </td>
+                        <td className="py-3 px-3 text-[#6B7770]">
+                          {item.divisi}
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 rounded-full bg-[#F1F3F1]">
+                              <div
+                                className="h-1.5 rounded-full bg-[#1B4332]"
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-[#6B7770]">
+                              {pct}%
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3">
+                          <StatusBadge status={item.status} />
+                        </td>
+                        <td className="py-3 px-3">
+                          <button
+                            onClick={() => onSelectPendaftaran(item.id)}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#D1FAE5] text-[#1B4332] text-xs font-semibold hover:bg-[#A8C3AD] transition-colors"
+                          >
+                            <Eye size={13} /> Verifikasi & Seleksi
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       </div>
     );
@@ -1669,12 +1876,22 @@ function AdminVerifikasi({ pendaftaranId }: { pendaftaranId: number | null }) {
   const docs = p.dokumen ?? [];
   const verified = docs.filter((d) => d.status === "terverifikasi").length;
   const pct = docs.length ? Math.round((verified / docs.length) * 100) : 0;
+  const semuaTerverifikasi = docs.length > 0 && verified === docs.length;
+  const sudahDiputuskan = p.status === "disetujui" || p.status === "ditolak";
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-bold text-[#1B4332]">
-        Verifikasi Berkas — {p.nama}
-      </h1>
+      <div className="flex items-center gap-3 flex-wrap justify-between">
+        <h1 className="text-xl font-bold text-[#1B4332]">
+          Verifikasi Berkas — {p.nama}
+        </h1>
+        <button
+          onClick={() => onSelectPendaftaran(null)}
+          className="flex items-center gap-1.5 text-sm font-semibold text-[#6B7770] hover:text-[#1B4332] transition-colors"
+        >
+          <ArrowLeft size={15} /> Kembali ke Daftar Pendaftar
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <Card className="lg:col-span-1">
@@ -1777,207 +1994,100 @@ function AdminVerifikasi({ pendaftaranId }: { pendaftaranId: number | null }) {
             </div>
           )}
         </Card>
-      </div>
-    </div>
-  );
-}
 
-function AdminSeleksi() {
-  const [selected, setSelected] = useState<number[]>([]);
-  const [list, setList] = useState<PendaftarItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const toggleSelect = (id: number) =>
-    setSelected((p) =>
-      p.includes(id) ? p.filter((x) => x !== id) : [...p, id],
-    );
+        <Card className="lg:col-span-3">
+          <h3 className="font-bold text-[#1B4332] mb-1">
+            Keputusan Seleksi & Surat Balasan
+          </h3>
+          <p className="text-xs text-[#6B7770] mb-4">
+            Setelah seluruh dokumen terverifikasi, tentukan hasil seleksi dan
+            masukkan nomor surat — surat balasan (PDF) dibuat otomatis dan
+            langsung bisa diunduh calon dari halaman Tracking Status miliknya.
+          </p>
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const { data } = await api.get("/pendaftar", {
-        params: { per_page: 50 },
-      });
-      setList(data.data);
-    } catch (err) {
-      setError(apiErrorMessage(err, "Gagal memuat data pendaftar."));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  async function bulkUpdate(status: "disetujui" | "ditolak") {
-    setBusy(true);
-    try {
-      await Promise.all(
-        selected.map((id) => api.put(`/pendaftar/${id}`, { status })),
-      );
-      setSelected([]);
-      load();
-    } catch (err) {
-      alert(apiErrorMessage(err, "Gagal memproses seleksi."));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function rowUpdate(id: number, status: "disetujui" | "ditolak") {
-    setBusy(true);
-    try {
-      await api.put(`/pendaftar/${id}`, { status });
-      load();
-    } catch (err) {
-      alert(apiErrorMessage(err, "Gagal memproses seleksi."));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-bold text-[#1B4332]">Proses Seleksi</h1>
-        <div className="flex gap-2">
-          {selected.length > 0 && (
-            <>
+          {sudahDiputuskan && !editingKeputusan && (
+            <div className="flex items-center gap-3 flex-wrap p-3 rounded-xl bg-[#F1F3F1] border border-[#1B4332]/8">
+              <StatusBadge status={p.status} />
+              <span className="text-sm text-[#3D4442]">
+                Nomor Surat: <strong>{p.nomor_surat ?? "-"}</strong>
+              </span>
+              {p.surat_dikirim_at && (
+                <span className="text-xs text-[#6B7770]">
+                  Diterbitkan {p.surat_dikirim_at}
+                </span>
+              )}
+              <div className="flex-1" />
+              {p.surat_url && (
+                <button
+                  onClick={() => openAuthenticatedFile(p.surat_url!)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1B4332] text-white text-xs font-semibold hover:bg-[#2D5A45] transition-colors"
+                >
+                  <Download size={13} /> Unduh Surat
+                </button>
+              )}
               <button
-                disabled={busy}
-                onClick={() => bulkUpdate("disetujui")}
-                className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
+                onClick={() => setEditingKeputusan(true)}
+                className="text-xs font-semibold text-[#6B7770] hover:text-[#1B4332] underline"
               >
-                <Check size={15} /> Loloskan ({selected.length})
+                Terbitkan ulang / ubah nomor surat
               </button>
-              <button
-                disabled={busy}
-                onClick={() => bulkUpdate("ditolak")}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-              >
-                <XCircle size={15} /> Tolak ({selected.length})
-              </button>
-            </>
+            </div>
           )}
-        </div>
-      </div>
 
-      <Card>
-        {loading ? (
-          <LoadingState />
-        ) : error ? (
-          <ErrorState message={error} onRetry={load} />
-        ) : list.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[#1B4332]/10">
-                  <th className="py-2.5 px-3 w-10">
-                    <input
-                      type="checkbox"
-                      onChange={(e) =>
-                        setSelected(
-                          e.target.checked ? list.map((p) => p.id) : [],
-                        )
-                      }
-                      className="accent-[#1B4332]"
-                    />
-                  </th>
-                  {[
-                    "Nama",
-                    "Institusi",
-                    "Divisi",
-                    "Kelengkapan Berkas",
-                    "Status",
-                    "Aksi",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="text-left py-2.5 px-3 text-[#6B7770] text-xs font-semibold uppercase tracking-wide"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {list.map((p) => {
-                  const total = p.dokumen?.length ?? 0;
-                  const done =
-                    p.dokumen?.filter((d) => d.status === "terverifikasi")
-                      .length ?? 0;
-                  const pct = total
-                    ? Math.round((done / total) * 100)
-                    : p.status === "disetujui"
-                      ? 100
-                      : p.status === "ditolak"
-                        ? 0
-                        : 50;
-                  return (
-                    <tr
-                      key={p.id}
-                      className="border-b border-[#1B4332]/5 hover:bg-[#F1F3F1]/50 transition-colors"
-                    >
-                      <td className="py-3 px-3">
-                        <input
-                          type="checkbox"
-                          checked={selected.includes(p.id)}
-                          onChange={() => toggleSelect(p.id)}
-                          className="accent-[#1B4332]"
-                        />
-                      </td>
-                      <td className="py-3 px-3 font-semibold text-[#1B4332]">
-                        {p.nama}
-                      </td>
-                      <td className="py-3 px-3 text-[#6B7770]">
-                        {p.institusi}
-                      </td>
-                      <td className="py-3 px-3 text-[#6B7770]">{p.divisi}</td>
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-1.5 rounded-full bg-[#F1F3F1]">
-                            <div
-                              className="h-1.5 rounded-full bg-[#1B4332]"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                          <span className="text-xs text-[#6B7770]">{pct}%</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-3">
-                        <StatusBadge status={p.status} />
-                      </td>
-                      <td className="py-3 px-3">
-                        <div className="flex gap-1">
-                          <button
-                            disabled={busy}
-                            onClick={() => rowUpdate(p.id, "disetujui")}
-                            className="px-2.5 py-1 rounded-lg bg-[#D1FAE5] text-[#1B4332] text-xs font-semibold hover:bg-[#A8C3AD] transition-colors disabled:opacity-50"
-                          >
-                            Loloskan
-                          </button>
-                          <button
-                            disabled={busy}
-                            onClick={() => rowUpdate(p.id, "ditolak")}
-                            className="px-2.5 py-1 rounded-lg bg-red-100 text-red-600 text-xs font-semibold hover:bg-red-200 transition-colors disabled:opacity-50"
-                          >
-                            Tolak
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+          {(editingKeputusan || !sudahDiputuskan) && (
+            <div className="space-y-3">
+              {!semuaTerverifikasi && (
+                <p className="text-xs text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
+                  Verifikasi seluruh dokumen di atas terlebih dahulu sebelum
+                  mengambil keputusan seleksi.
+                </p>
+              )}
+              <div className="grid sm:grid-cols-2 gap-3">
+                <select
+                  value={decision}
+                  onChange={(e) =>
+                    setDecision(e.target.value as "" | "disetujui" | "ditolak")
+                  }
+                  className="px-3 py-2 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none"
+                >
+                  <option value="">Pilih keputusan...</option>
+                  <option value="disetujui">Diterima</option>
+                  <option value="ditolak">Ditolak</option>
+                </select>
+                <input
+                  value={nomorSurat}
+                  onChange={(e) => setNomorSurat(e.target.value)}
+                  placeholder="Nomor surat, contoh: 421/123/2026"
+                  className="px-3 py-2 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={
+                    !semuaTerverifikasi ||
+                    !decision ||
+                    !nomorSurat.trim() ||
+                    sendingKeputusan
+                  }
+                  onClick={kirimKeputusan}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-40"
+                >
+                  <Send size={15} />
+                  {sendingKeputusan ? "Mengirim..." : "Kirim Keputusan & Surat"}
+                </button>
+                {sudahDiputuskan && (
+                  <button
+                    onClick={() => setEditingKeputusan(false)}
+                    className="text-xs font-semibold text-[#6B7770] hover:text-[#1B4332]"
+                  >
+                    Batal
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
     </div>
   );
 }
@@ -4153,6 +4263,28 @@ function TrackingStatus() {
         </div>
       </Card>
 
+      {p.surat_url && (
+        <Card>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h3 className="font-bold text-[#1B4332]">
+                Surat Keputusan Magang
+              </h3>
+              <p className="text-xs text-[#6B7770] mt-0.5">
+                Nomor {p.nomor_surat}
+                {p.surat_dikirim_at && ` • diterbitkan ${p.surat_dikirim_at}`}
+              </p>
+            </div>
+            <button
+              onClick={() => openAuthenticatedFile(p.surat_url!)}
+              className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors"
+            >
+              <Download size={15} /> Unduh Surat
+            </button>
+          </div>
+        </Card>
+      )}
+
       <Card>
         <h3 className="font-bold text-[#1B4332] mb-2">Informasi</h3>
         <div className="space-y-2 text-sm">
@@ -4163,7 +4295,7 @@ function TrackingStatus() {
             />
             <span className="text-[#6B7770]">
               Estimasi pengumuman:{" "}
-              <strong className="text-[#3D4442]">25 Juli 2025</strong>
+              <strong className="text-[#3D4442]">{p.batas_pengumuman}</strong>
             </span>
           </div>
           <div className="flex gap-2">
@@ -4406,8 +4538,8 @@ function AbsensiHariIni() {
                 <li>Pulang: 15.00 – 16.00</li>
               </ul>
               <p className="mt-1">
-                Di luar jam tersebut tidak dapat melakukan absensi. Khusus
-                Izin, Sakit, dan Lupa Absen tidak ada batas jam.
+                Di luar jam tersebut tidak dapat melakukan absensi. Khusus Izin,
+                Sakit, dan Lupa Absen tidak ada batas jam.
               </p>
             </div>
 
@@ -5936,6 +6068,16 @@ export default function App() {
     handleLogout();
   }
 
+  // Dipakai saat notifikasi diklik: kalau notifikasi bawa pendaftaran_id
+  // (mis. "Calon Peserta Memperbarui Data Pendaftaran"), langsung pilih
+  // pendaftaran itu supaya halaman Verifikasi Berkas tidak kosong.
+  function handleNotifNavigate(page: Page, pendaftaranId?: number | null) {
+    if (typeof pendaftaranId === "number") {
+      setSelectedPendaftaranId(pendaftaranId);
+    }
+    setPage(page);
+  }
+
   // Pulihkan sesi kalau token masih tersimpan (mis. setelah refresh halaman).
   useEffect(() => {
     const token = sessionStorage.getItem("simago_token");
@@ -5972,9 +6114,12 @@ export default function App() {
             />
           );
         case "verifikasi":
-          return <AdminVerifikasi pendaftaranId={selectedPendaftaranId} />;
-        case "seleksi":
-          return <AdminSeleksi />;
+          return (
+            <AdminVerifikasi
+              pendaftaranId={selectedPendaftaranId}
+              onSelectPendaftaran={setSelectedPendaftaranId}
+            />
+          );
         case "penempatan":
           return <AdminPenempatan />;
         case "pembimbing-akun":
@@ -6040,6 +6185,7 @@ export default function App() {
       setPage={setPage}
       onLogout={doLogout}
       userName={userName}
+      onNotifNavigate={handleNotifNavigate}
     >
       {renderPage()}
     </Layout>

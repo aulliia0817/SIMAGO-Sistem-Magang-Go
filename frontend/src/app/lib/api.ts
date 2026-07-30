@@ -56,14 +56,32 @@ export function apiErrorMessage(
 }
 
 /**
- * Buka file (dokumen/sertifikat) di tab baru lewat request terautentikasi.
+ * Buka file (dokumen/sertifikat/surat) di tab baru lewat request terautentikasi.
  * Dipakai untuk endpoint seperti /dokumen/{id}/file — tidak bisa dibuka lewat
  * <a href> biasa karena butuh header Authorization (Bearer token).
+ *
+ * Tab baru dibuka SEBELUM request selesai (bukan setelah await) supaya tetap
+ * dianggap browser sebagai hasil klik langsung user — kalau window.open()
+ * dipanggil setelah await, sebagian browser (mis. Edge/Chrome) diam-diam
+ * memblokirnya sebagai popup tanpa pesan error apa pun.
  */
 export async function openAuthenticatedFile(path: string): Promise<void> {
-  const res = await api.get(path, { responseType: "blob" });
-  const blobUrl = URL.createObjectURL(res.data as Blob);
-  window.open(blobUrl, "_blank");
-  // Beri waktu tab baru memuat sebelum URL objek dilepas dari memori.
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  const newTab = window.open("", "_blank");
+  try {
+    const res = await api.get(path, { responseType: "blob" });
+    const blobUrl = URL.createObjectURL(res.data as Blob);
+    if (newTab) {
+      newTab.location.href = blobUrl;
+    } else {
+      // Tab baru gagal dibuka (mis. diblokir sejak awal) — coba cara biasa.
+      window.open(blobUrl, "_blank");
+    }
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  } catch (err) {
+    newTab?.close();
+    alert(
+      apiErrorMessage(err, "Gagal membuka file. Pastikan file sudah tersedia."),
+    );
+    throw err;
+  }
 }

@@ -38,7 +38,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Lihat/unduh file — otorisasi (admin/pembimbing atau pemilik) dicek di controller
     Route::get('/dokumen/{dokumen}/file', [DokumenController::class, 'file']);
     Route::get('/sertifikat/{sertifikat}/file', [SertifikatController::class, 'file']);
-    Route::get('/absensi/{absensi}/file', [AbsensiController::class, 'file']);
+    Route::get('/pendaftar/{pendaftaran}/surat', [PendaftaranController::class, 'suratFile']);
 
     Route::get('/notifikasi', [NotifikasiController::class, 'index']);
     Route::put('/notifikasi/{notifikasi}/baca', [NotifikasiController::class, 'markRead']);

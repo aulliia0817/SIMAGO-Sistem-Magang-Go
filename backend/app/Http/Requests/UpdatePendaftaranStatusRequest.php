@@ -14,10 +14,13 @@ class UpdatePendaftaranStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Seleksi (Loloskan/Tolak) only changes status — no extra form on that page.
-            // Assigning a pembimbing/period happens afterwards on the Penempatan page.
+            // Verifikasi berkas + seleksi + penerbitan surat balasan sekarang
+            // jadi satu langkah di halaman Verifikasi Berkas: begitu admin
+            // memutuskan diterima/ditolak, nomor surat wajib diisi karena
+            // langsung dipakai untuk membuat PDF surat balasannya.
             'status' => ['required', 'in:menunggu,disetujui,ditolak'],
             'catatan_admin' => ['nullable', 'string'],
+            'nomor_surat' => ['required_if:status,disetujui,ditolak', 'nullable', 'string', 'max:100'],
         ];
     }
 }
