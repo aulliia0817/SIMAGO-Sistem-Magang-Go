@@ -127,6 +127,7 @@ type PendaftarItem = {
   nomor_surat: string | null;
   surat_dikirim_at: string | null;
   surat_url: string | null;
+  dokumen_dikirim: boolean;
   dokumen?: DokumenItem[];
 };
 type DokumenItem = {
@@ -252,7 +253,13 @@ function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(" ");
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({
+  status,
+  labelOverride,
+}: {
+  status: string;
+  labelOverride?: string;
+}) {
   const map: Record<string, { label: string; cls: string }> = {
     disetujui: { label: "Disetujui", cls: "bg-[#D1FAE5] text-[#1B4332]" },
     aktif: { label: "Aktif", cls: "bg-[#D1FAE5] text-[#1B4332]" },
@@ -263,6 +270,7 @@ function StatusBadge({ status }: { status: string }) {
     },
     selesai: { label: "Selesai", cls: "bg-[#D1FAE5] text-[#1B4332]" },
     menunggu: { label: "Menunggu", cls: "bg-amber-100 text-amber-800" },
+    belum_ada_data: { label: "Belum Ada Data", cls: "bg-gray-100 text-gray-500" },
     perhatian: { label: "Perlu Perhatian", cls: "bg-amber-100 text-amber-800" },
     "belum-review": {
       label: "Belum Direview",
@@ -284,7 +292,7 @@ function StatusBadge({ status }: { status: string }) {
         cfg.cls,
       )}
     >
-      {cfg.label}
+      {labelOverride ?? cfg.label}
     </span>
   );
 }
@@ -1541,6 +1549,7 @@ function AdminPendaftar({
             className="px-3 py-2 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none"
           >
             <option value="semua">Semua Status</option>
+            <option value="belum_ada_data">Belum Ada Data</option>
             <option value="menunggu">Menunggu</option>
             <option value="disetujui">Disetujui</option>
             <option value="ditolak">Ditolak</option>
@@ -1593,7 +1602,13 @@ function AdminPendaftar({
                     <td className="py-3 px-3 text-[#6B7770]">{p.divisi}</td>
                     <td className="py-3 px-3 text-[#6B7770]">{p.tanggal}</td>
                     <td className="py-3 px-3">
-                      <StatusBadge status={p.status} />
+                      <StatusBadge
+                        status={
+                          p.status === "menunggu" && !p.dokumen_dikirim
+                            ? "belum_ada_data"
+                            : p.status
+                        }
+                      />
                     </td>
                     <td className="py-3 px-3">
                       <div
@@ -1663,7 +1678,7 @@ function AdminVerifikasi({
     setListError("");
     try {
       const { data } = await api.get("/pendaftar", {
-        params: { search, status: filterStatus, per_page: 50 },
+        params: { search, status: filterStatus, per_page: 50, hanya_terkirim: 1 },
       });
       setList(data.data);
     } catch (err) {
@@ -3353,6 +3368,7 @@ function AdminLaporan() {
 function CalonDashboard({ userStatus }: { userStatus: "calon" | "peserta" }) {
   const isPeserta = userStatus === "peserta";
   const [d, setD] = useState<any>(null);
+  const [periodeDibuka, setPeriodeDibuka] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -3360,8 +3376,12 @@ function CalonDashboard({ userStatus }: { userStatus: "calon" | "peserta" }) {
     setLoading(true);
     setError("");
     try {
-      const { data } = await api.get("/dashboard");
-      setD(data);
+      const [dash, periode] = await Promise.all([
+        api.get("/dashboard"),
+        api.get("/pengaturan/periode"),
+      ]);
+      setD(dash.data);
+      setPeriodeDibuka(periode.data.dibuka);
     } catch (err) {
       setError(apiErrorMessage(err, "Gagal memuat dashboard."));
     } finally {
@@ -3491,6 +3511,107 @@ function CalonDashboard({ userStatus }: { userStatus: "calon" | "peserta" }) {
           </>
         )}
       </div>
+
+      {!isPeserta && (
+        <>
+          {!periodeDibuka && (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200">
+              <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+                <XCircle size={18} className="text-red-600" />
+              </div>
+              <div>
+                <p className="font-bold text-red-700 text-sm">
+                  Periode Pendaftaran Magang Sedang Ditutup
+                </p>
+                <p className="text-xs text-red-600 mt-0.5">
+                  Admin sedang menutup pendaftaran magang untuk sementara.
+                  Silakan cek kembali di lain waktu. Kamu tetap bisa membaca
+                  syarat & ketentuan di bawah untuk persiapan.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <Card>
+            <div className="flex items-center gap-2 mb-4">
+              <ClipboardList size={18} className="text-[#1B4332]" />
+              <h3 className="font-bold text-[#1B4332]">
+                Syarat & Ketentuan Pendaftaran Magang
+              </h3>
+            </div>
+
+            <p className="text-sm text-[#6B7770] mb-4">
+              Sebelum mendaftar, siapkan 7 dokumen berikut. Seluruh dokumen
+              wajib diunggah dan dikirim melalui halaman{" "}
+              <strong className="text-[#3D4442]">Upload Dokumen</strong>{" "}
+              sebelum berkas kamu bisa diverifikasi oleh admin.
+            </p>
+
+            <div className="space-y-3">
+              {[
+                {
+                  nama: "1. Curriculum Vitae (CV)",
+                  ket: "CV terbaru berisi data diri, riwayat pendidikan, dan kemampuan/keahlian yang relevan dengan divisi yang dituju.",
+                },
+                {
+                  nama: "2. Surat Pengantar",
+                  ket: "Surat pengantar resmi dari kampus/sekolah asal yang ditujukan kepada Dinas Kependudukan dan Pencatatan Sipil Kabupaten Madiun, lengkap dengan kop surat dan tanda tangan/cap pihak kampus.",
+                },
+                {
+                  nama: "3. Surat Pengantar Bakesbangpol Kabupaten Madiun",
+                  ket: "Surat rekomendasi/izin magang dari Badan Kesatuan Bangsa dan Politik (Bakesbangpol) Kabupaten Madiun — syarat wajib untuk magang di instansi pemerintah daerah.",
+                },
+                {
+                  nama: "4. Transkrip Nilai",
+                  ket: "Transkrip nilai akademik terbaru (minimal sampai semester berjalan), ditandatangani/dilegalisir oleh pihak kampus.",
+                },
+                {
+                  nama: "5. Kartu Tanda Mahasiswa (KTM)",
+                  ket: "KTM yang masih berlaku dan masih aktif sebagai mahasiswa pada periode pengajuan magang.",
+                },
+                {
+                  nama: "6. Pas Foto 4x6",
+                  ket: "Pas foto formal terbaru (maksimal 6 bulan terakhir), berlatar belakang merah atau biru, mengenakan pakaian rapi dan sopan.",
+                },
+                {
+                  nama: "7. Proposal",
+                  ket: "Proposal pengajuan magang yang memuat latar belakang, tujuan, jadwal/periode, dan rencana kegiatan magang di divisi yang dituju, disetujui oleh kampus/sekolah asal.",
+                },
+              ].map((item) => (
+                <div
+                  key={item.nama}
+                  className="p-3 rounded-lg bg-[#F1F3F1] border border-[#1B4332]/8"
+                >
+                  <p className="font-semibold text-[#3D4442] text-sm">
+                    {item.nama}
+                  </p>
+                  <p className="text-xs text-[#6B7770] mt-0.5">{item.ket}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-[#1B4332]/10 space-y-1.5 text-xs text-[#6B7770]">
+              <p className="font-semibold text-[#3D4442] uppercase tracking-wide text-[11px] mb-1">
+                Ketentuan Umum
+              </p>
+              <p>• Format file yang diterima: PDF, DOCX, JPG, atau PNG.</p>
+              <p>• Ukuran maksimal setiap file: 5MB.</p>
+              <p>
+                • Pastikan seluruh dokumen jelas terbaca dan tidak buram
+                sebelum diunggah.
+              </p>
+              <p>
+                • Dokumen yang sudah dikirim untuk verifikasi tidak dapat
+                diganti, kecuali ditolak admin dan diminta unggah ulang.
+              </p>
+              <p>
+                • Pendaftaran hanya dapat diajukan selama periode pendaftaran
+                sedang dibuka oleh admin.
+              </p>
+            </div>
+          </Card>
+        </>
+      )}
 
       {isPeserta && (
         <Card>

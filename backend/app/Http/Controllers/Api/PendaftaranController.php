@@ -22,12 +22,30 @@ class PendaftaranController extends Controller
     {
         $query = Pendaftaran::with(['mahasiswa.user', 'divisi', 'pesertaMagang']);
 
+        // Dipakai KHUSUS oleh halaman "Verifikasi Berkas" (frontend mengirim
+        // ?hanya_terkirim=1). Halaman "Data Pendaftar" TIDAK mengirim param
+        // ini, jadi tetap menampilkan semua pendaftar termasuk yang masih
+        // "menunggu" dan belum menekan "Kirim Berkas" — karena admin memang
+        // perlu melihat progres semua pendaftar, bukan cuma yang siap
+        // diverifikasi.
+        if ($request->boolean('hanya_terkirim')) {
+            $query->whereNotNull('dokumen_dikirim_at');
+        }
+
         if ($search = $request->query('search')) {
             $query->whereHas('mahasiswa.user', fn($q) => $q->where('name', 'like', "%{$search}%"));
         }
 
         if ($status = $request->query('status')) {
-            if ($status !== 'semua') {
+            if ($status === 'belum_ada_data') {
+                // Status DB masih 'menunggu' tapi belum pernah kirim berkas
+                // sama sekali -> ditampilkan sebagai "Belum Ada Data".
+                $query->where('status', 'menunggu')->whereNull('dokumen_dikirim_at');
+            } elseif ($status === 'menunggu') {
+                // "Menunggu" (di tampilan admin) khusus untuk yang statusnya
+                // masih menunggu TAPI sudah kirim berkas (siap diverifikasi).
+                $query->where('status', 'menunggu')->whereNotNull('dokumen_dikirim_at');
+            } elseif ($status !== 'semua') {
                 $query->where('status', $status);
             }
         }
@@ -87,7 +105,7 @@ class PendaftaranController extends Controller
             'status' => 'menunggu',
         ]);
 
-        $dokumenWajib = ['Curriculum Vitae (CV)', 'Surat Pengantar Kampus', 'Surat Pengantar Kesbangpol', 'Transkrip Nilai', 'Kartu Tanda Mahasiswa (KTM)', 'Pas Foto 4x6'];
+        $dokumenWajib = ['Curriculum Vitae (CV)', 'Surat Pengantar Kampus', 'Surat Pengantar Bakesbangpol Kabupaten Madiun', 'Proposal', 'Transkrip Nilai', 'Kartu Tanda Mahasiswa (KTM)', 'Pas Foto 4x6'];
         foreach ($dokumenWajib as $jenis) {
             $pendaftaran->dokumens()->create(['jenis' => $jenis, 'status' => 'belum-upload']);
         }
@@ -112,6 +130,36 @@ class PendaftaranController extends Controller
         }
 
         return new PendaftaranResource($pendaftaran);
+    }
+
+    /**
+     * Calon Magang: tekan "Kirim Berkas" setelah semua dokumen wajib terupload.
+     * Mengunci dokumen dari perubahan (kecuali yang ditolak admin) dan
+     * memunculkan pendaftaran ini di daftar verifikasi admin.
+     */
+    public function kirimDokumen(Request $request)
+    {
+        $pendaftaran = $request->user()->mahasiswa?->pendaftarans()->with('dokumens')->latest()->first();
+
+        abort_unless($pendaftaran, 404, 'Belum ada pendaftaran.');
+
+        $belumLengkap = $pendaftaran->dokumens
+            ->where('status', '!=', 'ditolak')
+            ->contains(fn($d) => empty($d->file_path));
+
+        abort_if($belumLengkap, 422, 'Masih ada dokumen wajib yang belum diupload.');
+
+        $pendaftaran->update(['dokumen_dikirim_at' => now()]);
+
+        Notifikasi::kirimKeRole(
+            'admin',
+            'Berkas Pendaftaran Telah Dikirim',
+            "{$request->user()->name} telah mengirimkan seluruh berkas untuk diverifikasi.",
+            halaman: 'verifikasi',
+            pendaftaranId: $pendaftaran->id
+        );
+
+        return new PendaftaranResource($pendaftaran->fresh(['mahasiswa.user', 'divisi', 'dokumens']));
     }
 
     /**
