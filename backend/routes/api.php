@@ -19,10 +19,7 @@ use Illuminate\Support\Facades\Route;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 
-// Divisi list is needed on the public registration form (Step 3: pilih divisi)
 Route::get('/divisi', [DivisiController::class, 'index']);
-
-// Status buka/tutup periode pendaftaran — dicek form pendaftaran calon sebelum submit
 Route::get('/pengaturan/periode', [PengaturanController::class, 'periode']);
 
 // ─── Authenticated (Sanctum token) ─────────────────────────────────────────
@@ -35,7 +32,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profil', [ProfilController::class, 'show']);
     Route::put('/profil', [ProfilController::class, 'update']);
 
-    // Lihat/unduh file — otorisasi (admin/pembimbing atau pemilik) dicek di controller
     Route::get('/dokumen/{dokumen}/file', [DokumenController::class, 'file']);
     Route::get('/sertifikat/{sertifikat}/file', [SertifikatController::class, 'file']);
     Route::get('/pendaftar/{pendaftaran}/surat', [PendaftaranController::class, 'suratFile']);
@@ -49,6 +45,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:calon,peserta')->group(function () {
         Route::post('/pendaftaran', [PendaftaranController::class, 'store']);
         Route::get('/pendaftaran/saya', [PendaftaranController::class, 'mine']);
+        Route::get('/pendaftaran/riwayat', [PendaftaranController::class, 'riwayat']);
+        Route::get('/pendaftaran/saya/{pendaftaran}', [PendaftaranController::class, 'showMine']);
         Route::put('/pendaftaran/kirim-dokumen', [PendaftaranController::class, 'kirimDokumen']);
         Route::get('/dokumen/saya', [DokumenController::class, 'mine']);
         Route::post('/dokumen/{dokumen}/upload', [DokumenController::class, 'upload']);

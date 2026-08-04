@@ -270,13 +270,17 @@ function StatusBadge({
     },
     selesai: { label: "Selesai", cls: "bg-[#D1FAE5] text-[#1B4332]" },
     menunggu: { label: "Menunggu", cls: "bg-amber-100 text-amber-800" },
-    belum_ada_data: { label: "Belum Ada Data", cls: "bg-gray-100 text-gray-500" },
+    belum_ada_data: {
+      label: "Belum Ada Data",
+      cls: "bg-gray-100 text-gray-500",
+    },
     perhatian: { label: "Perlu Perhatian", cls: "bg-amber-100 text-amber-800" },
     "belum-review": {
       label: "Belum Direview",
       cls: "bg-amber-100 text-amber-800",
     },
     ditolak: { label: "Ditolak", cls: "bg-red-100 text-red-700" },
+    kedaluwarsa: { label: "Kedaluwarsa", cls: "bg-gray-200 text-gray-600" },
     nonaktif: { label: "Nonaktif", cls: "bg-red-100 text-red-700" },
     "perlu-revisi": { label: "Perlu Revisi", cls: "bg-red-100 text-red-700" },
     "belum-upload": { label: "Belum Upload", cls: "bg-gray-100 text-gray-500" },
@@ -463,6 +467,7 @@ function Sidebar({
   open,
   setOpen,
   onLogout,
+  resetSelection,
 }: {
   role: Role;
   page: Page;
@@ -470,6 +475,7 @@ function Sidebar({
   open: boolean;
   setOpen: (v: boolean) => void;
   onLogout: () => void;
+  resetSelection: () => void;
 }) {
   const items = getNavItems(role);
   const roleLabel: Record<Role, string> = {
@@ -537,6 +543,7 @@ function Sidebar({
             key={item.page}
             title={!open ? item.label : undefined}
             onClick={() => {
+              resetSelection();
               setPage(item.page);
               setOpen(false);
             }}
@@ -793,6 +800,7 @@ function Layout({
   onLogout,
   userName,
   onNotifNavigate,
+  resetSelection,
   children,
 }: {
   role: Role;
@@ -801,6 +809,7 @@ function Layout({
   onLogout: () => void;
   userName: string;
   onNotifNavigate: (page: Page, pendaftaranId?: number | null) => void;
+  resetSelection: () => void;
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -813,6 +822,7 @@ function Layout({
         open={sidebarOpen}
         setOpen={setSidebarOpen}
         onLogout={onLogout}
+        resetSelection={resetSelection}
       />
       <div className="ml-20 flex flex-col h-screen">
         <TopBar
@@ -1678,7 +1688,12 @@ function AdminVerifikasi({
     setListError("");
     try {
       const { data } = await api.get("/pendaftar", {
-        params: { search, status: filterStatus, per_page: 50, hanya_terkirim: 1 },
+        params: {
+          search,
+          status: filterStatus,
+          per_page: 50,
+          hanya_terkirim: 1,
+        },
       });
       setList(data.data);
     } catch (err) {
@@ -3543,8 +3558,8 @@ function CalonDashboard({ userStatus }: { userStatus: "calon" | "peserta" }) {
             <p className="text-sm text-[#6B7770] mb-4">
               Sebelum mendaftar, siapkan 7 dokumen berikut. Seluruh dokumen
               wajib diunggah dan dikirim melalui halaman{" "}
-              <strong className="text-[#3D4442]">Upload Dokumen</strong>{" "}
-              sebelum berkas kamu bisa diverifikasi oleh admin.
+              <strong className="text-[#3D4442]">Upload Dokumen</strong> sebelum
+              berkas kamu bisa diverifikasi oleh admin.
             </p>
 
             <div className="space-y-3">
@@ -3597,8 +3612,8 @@ function CalonDashboard({ userStatus }: { userStatus: "calon" | "peserta" }) {
               <p>• Format file yang diterima: PDF, DOCX, JPG, atau PNG.</p>
               <p>• Ukuran maksimal setiap file: 5MB.</p>
               <p>
-                • Pastikan seluruh dokumen jelas terbaca dan tidak buram
-                sebelum diunggah.
+                • Pastikan seluruh dokumen jelas terbaca dan tidak buram sebelum
+                diunggah.
               </p>
               <p>
                 • Dokumen yang sudah dikirim untuk verifikasi tidak dapat
@@ -3636,7 +3651,13 @@ function CalonDashboard({ userStatus }: { userStatus: "calon" | "peserta" }) {
   );
 }
 
-function FormPendaftaran({ setPage }: { setPage: (p: Page) => void }) {
+function FormPendaftaran({
+  setPage,
+  onSubmitted,
+}: {
+  setPage: (p: Page) => void;
+  onSubmitted: (id: number) => void;
+}) {
   const [step, setStep] = useState(1);
   const totalSteps = 4;
   const stepLabels = ["Data Diri", "Institusi", "Detail Magang", "Review"];
@@ -3689,6 +3710,7 @@ function FormPendaftaran({ setPage }: { setPage: (p: Page) => void }) {
         ...form,
         divisi_id: Number(form.divisi_id),
       });
+      onSubmitted(1); // Assuming 1 is the ID of the submitted application
       setPage("tracking");
     } catch (err) {
       setSubmitError(apiErrorMessage(err, "Gagal mengirim pendaftaran."));
@@ -4254,8 +4276,8 @@ function UploadDokumen() {
   );
 }
 
-function TrackingStatus() {
-  const [p, setP] = useState<PendaftarItem | null>(null);
+function RiwayatPendaftaran({ onSelect }: { onSelect: (id: number) => void }) {
+  const [list, setList] = useState<PendaftarItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -4263,10 +4285,10 @@ function TrackingStatus() {
     setLoading(true);
     setError("");
     try {
-      const { data } = await api.get("/pendaftaran/saya");
-      setP(data.data);
+      const { data } = await api.get("/pendaftaran/riwayat");
+      setList(data.data);
     } catch (err) {
-      setError(apiErrorMessage(err, "Gagal memuat status pendaftaran."));
+      setError(apiErrorMessage(err, "Gagal memuat riwayat pendaftaran."));
     } finally {
       setLoading(false);
     }
@@ -4278,17 +4300,103 @@ function TrackingStatus() {
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} onRetry={load} />;
+
+  return (
+    <div className="space-y-5 max-w-2xl mx-auto">
+      <h1 className="text-xl font-bold text-[#1B4332]">Riwayat Pendaftaran</h1>
+
+      {list.length === 0 ? (
+        <Card>
+          <EmptyState label="Belum ada riwayat pendaftaran. Silakan isi form pendaftaran terlebih dahulu." />
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {list.map((p) => (
+            <Card
+              key={p.id}
+              className="flex items-center justify-between gap-4 flex-wrap"
+            >
+              <div>
+                <p className="font-bold text-[#1B4332] text-sm">
+                  Nomor Pendaftaran: PND-{String(p.id).padStart(6, "0")}
+                </p>
+                <p className="text-xs text-[#6B7770] mt-1">
+                  Diajukan {p.tanggal} — Divisi {p.divisi}
+                </p>
+                <p className="text-xs text-[#6B7770] mt-0.5">
+                  Batas pengumuman: {p.batas_pengumuman}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <StatusBadge status={p.status} />
+                <button
+                  onClick={() => onSelect(p.id)}
+                  className="flex items-center gap-2 px-3.5 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors"
+                >
+                  <Eye size={14} /> Lihat Tracking
+                </button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TrackingStatus({
+  pendaftaranId,
+  onBack,
+}: {
+  pendaftaranId: number;
+  onBack: () => void;
+}) {
+  const [p, setP] = useState<PendaftarItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const { data } = await api.get(`/pendaftaran/saya/${pendaftaranId}`);
+      setP(data.data);
+    } catch (err) {
+      setError(apiErrorMessage(err, "Gagal memuat status pendaftaran."));
+    } finally {
+      setLoading(false);
+    }
+  }, [pendaftaranId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const backButton = (
+    <button
+      onClick={onBack}
+      className="flex items-center gap-1.5 text-sm font-semibold text-[#1B4332] hover:underline mb-1"
+    >
+      <ArrowLeft size={14} /> Kembali ke Riwayat Pendaftaran
+    </button>
+  );
+
+  if (loading) return <LoadingState />;
+  if (error) return <ErrorState message={error} onRetry={load} />;
   if (!p)
     return (
-      <div className="max-w-xl mx-auto">
-        <EmptyState label="Belum ada pendaftaran. Silakan isi form pendaftaran terlebih dahulu." />
+      <div className="max-w-xl mx-auto space-y-3">
+        {backButton}
+        <EmptyState label="Pendaftaran tidak ditemukan." />
       </div>
     );
 
   const docCount = p.dokumen?.length ?? 0;
   const docVerified =
     p.dokumen?.every((d) => d.status === "terverifikasi") ?? false;
-  const seleksiSelesai = p.status === "disetujui" || p.status === "ditolak";
+  const kedaluwarsa = p.status === "kedaluwarsa";
+  const seleksiSelesai =
+    p.status === "disetujui" || p.status === "ditolak" || kedaluwarsa;
 
   const steps = [
     {
@@ -4303,15 +4411,25 @@ function TrackingStatus() {
         ? "Seluruh dokumen sudah diverifikasi"
         : `${docCount} dokumen sedang diperiksa admin`,
       done: docVerified,
-      active: !docVerified,
-      date: docVerified ? "Selesai" : "Sedang berjalan",
+      active: !docVerified && !kedaluwarsa,
+      date: docVerified
+        ? "Selesai"
+        : kedaluwarsa
+          ? "Terlewat"
+          : "Sedang berjalan",
     },
     {
       label: "Proses Seleksi",
-      desc: "Menunggu keputusan seleksi",
+      desc: kedaluwarsa
+        ? "Batas pengumuman terlewati tanpa keputusan"
+        : "Menunggu keputusan seleksi",
       done: seleksiSelesai,
       active: docVerified && !seleksiSelesai,
-      date: seleksiSelesai ? "Selesai" : "Menunggu",
+      date: seleksiSelesai
+        ? kedaluwarsa
+          ? "Kedaluwarsa"
+          : "Selesai"
+        : "Menunggu",
     },
     {
       label: "Pengumuman Hasil",
@@ -4320,7 +4438,9 @@ function TrackingStatus() {
           ? "Selamat, kamu lolos seleksi!"
           : p.status === "ditolak"
             ? "Belum lolos seleksi kali ini."
-            : "Lolos / tidak lolos seleksi",
+            : kedaluwarsa
+              ? "Pendaftaran kedaluwarsa — silakan daftar ulang."
+              : "Lolos / tidak lolos seleksi",
       done: seleksiSelesai,
       date: seleksiSelesai ? p.status : "Menunggu",
     },
@@ -4328,6 +4448,7 @@ function TrackingStatus() {
 
   return (
     <div className="space-y-5 max-w-xl mx-auto">
+      {backButton}
       <h1 className="text-xl font-bold text-[#1B4332]">
         Tracking Status Pendaftaran
       </h1>
@@ -6282,11 +6403,23 @@ export default function App() {
         case "dashboard":
           return <CalonDashboard userStatus={role} />;
         case "pendaftaran":
-          return <FormPendaftaran setPage={setPage} />;
+          return (
+            <FormPendaftaran
+              setPage={setPage}
+              onSubmitted={(id) => setSelectedPendaftaranId(id)}
+            />
+          );
         case "dokumen":
           return <UploadDokumen />;
         case "tracking":
-          return <TrackingStatus />;
+          return selectedPendaftaranId ? (
+            <TrackingStatus
+              pendaftaranId={selectedPendaftaranId}
+              onBack={() => setSelectedPendaftaranId(null)}
+            />
+          ) : (
+            <RiwayatPendaftaran onSelect={setSelectedPendaftaranId} />
+          );
         case "profil":
           return <PesertaProfil />;
         case "laporan-peserta":
@@ -6307,6 +6440,7 @@ export default function App() {
       onLogout={doLogout}
       userName={userName}
       onNotifNavigate={handleNotifNavigate}
+      resetSelection={() => setSelectedPendaftaranId(null)}
     >
       {renderPage()}
     </Layout>

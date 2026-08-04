@@ -22,12 +22,6 @@ class PendaftaranController extends Controller
     {
         $query = Pendaftaran::with(['mahasiswa.user', 'divisi', 'pesertaMagang']);
 
-        // Dipakai KHUSUS oleh halaman "Verifikasi Berkas" (frontend mengirim
-        // ?hanya_terkirim=1). Halaman "Data Pendaftar" TIDAK mengirim param
-        // ini, jadi tetap menampilkan semua pendaftar termasuk yang masih
-        // "menunggu" dan belum menekan "Kirim Berkas" — karena admin memang
-        // perlu melihat progres semua pendaftar, bukan cuma yang siap
-        // diverifikasi.
         if ($request->boolean('hanya_terkirim')) {
             $query->whereNotNull('dokumen_dikirim_at');
         }
@@ -38,12 +32,8 @@ class PendaftaranController extends Controller
 
         if ($status = $request->query('status')) {
             if ($status === 'belum_ada_data') {
-                // Status DB masih 'menunggu' tapi belum pernah kirim berkas
-                // sama sekali -> ditampilkan sebagai "Belum Ada Data".
                 $query->where('status', 'menunggu')->whereNull('dokumen_dikirim_at');
             } elseif ($status === 'menunggu') {
-                // "Menunggu" (di tampilan admin) khusus untuk yang statusnya
-                // masih menunggu TAPI sudah kirim berkas (siap diverifikasi).
                 $query->where('status', 'menunggu')->whereNotNull('dokumen_dikirim_at');
             } elseif ($status !== 'semua') {
                 $query->where('status', $status);
@@ -78,7 +68,17 @@ class PendaftaranController extends Controller
         $user = $request->user();
         $data = $request->validated();
 
-        $mahasiswa = $user->mahasiswa ?? Mahasiswa::create([
+        $mahasiswa = $user->mahasiswa;
+        if ($mahasiswa) {
+            $masihMenunggu = $mahasiswa->pendaftarans()->where('status', 'menunggu')->exists();
+            abort_if(
+                $masihMenunggu,
+                422,
+                'Anda masih memiliki pendaftaran yang sedang diproses. Tunggu hasil seleksi, atau sampai batas pengumuman (14 hari) terlewati, sebelum mendaftar ulang.'
+            );
+        }
+
+        $mahasiswa = $mahasiswa ?? Mahasiswa::create([
             'user_id' => $user->id,
             'nim' => $data['nim'],
             'tanggal_lahir' => $data['tanggal_lahir'] ?? null,
@@ -120,7 +120,7 @@ class PendaftaranController extends Controller
         return new PendaftaranResource($pendaftaran->load(['mahasiswa.user', 'divisi', 'dokumens']));
     }
 
-    /** Calon/Peserta: lihat status pendaftaran milik sendiri. */
+    /** Calon/Peserta: lihat status pendaftaran milik sendiri (yang terbaru saja). */
     public function mine(Request $request)
     {
         $pendaftaran = $request->user()->mahasiswa?->pendaftarans()->with(['divisi', 'dokumens'])->latest()->first();
@@ -130,6 +130,38 @@ class PendaftaranController extends Controller
         }
 
         return new PendaftaranResource($pendaftaran);
+    }
+
+    /**
+     * Calon/Peserta: Riwayat Pendaftaran — SEMUA pendaftaran yang pernah
+     * diajukan (termasuk yang sudah ditolak/kedaluwarsa), terbaru dulu.
+     * Riwayat ini tidak pernah hilang meski calon mendaftar ulang setelah
+     * lewat batas pengumuman (lihat CekBatasPengumumanPendaftaran).
+     */
+    public function riwayat(Request $request)
+    {
+        $mahasiswa = $request->user()->mahasiswa;
+
+        if (!$mahasiswa) {
+            return response()->json(['data' => []]);
+        }
+
+        $list = $mahasiswa->pendaftarans()->with('divisi')->latest()->get();
+
+        return PendaftaranResource::collection($list);
+    }
+
+    /**
+     * Calon/Peserta: detail satu pendaftaran spesifik milik sendiri (dipakai
+     * halaman Tracking Status setelah memilih salah satu dari Riwayat
+     * Pendaftaran). Hanya bisa diakses oleh pemiliknya sendiri.
+     */
+    public function showMine(Request $request, Pendaftaran $pendaftaran)
+    {
+        $ownerId = $pendaftaran->mahasiswa->user_id ?? null;
+        abort_unless($ownerId === $request->user()->id, 403, 'Anda tidak memiliki akses ke pendaftaran ini.');
+
+        return new PendaftaranResource($pendaftaran->load(['divisi', 'dokumens']));
     }
 
     /**
@@ -227,10 +259,6 @@ class PendaftaranController extends Controller
 
         $tersimpan = \Storage::disk('public')->put($path, $pdf->output());
 
-        // Disk 'public' diset `'throw' => false` (config/filesystems.php), jadi
-        // put() TIDAK melempar exception kalau gagal menulis — cuma balikin
-        // false. Tanpa pengecekan ini, pendaftaran akan tetap tercatat
-        // "surat terbit" walau file-nya sebenarnya tidak pernah tersimpan.
         if (!$tersimpan || !\Storage::disk('public')->exists($path)) {
             throw new \RuntimeException(
                 'Gagal menyimpan file surat ke storage (folder storage/app/public mungkin tidak bisa ditulis). '
@@ -269,9 +297,6 @@ class PendaftaranController extends Controller
         abort_unless($pendaftaran->surat_path, 404, 'Surat belum diterbitkan.');
         abort_unless(\Storage::disk('public')->exists($pendaftaran->surat_path), 404, 'File tidak ditemukan di server.');
 
-        // Nomor surat asli (mis. "421/123/2026") dipakai apa adanya di UI, tapi
-        // TIDAK boleh dipakai langsung sebagai nama file unduhan — Symfony
-        // melempar error kalau nama file mengandung "/" atau "\".
         $namaUnduh = str_replace(['/', '\\'], '-', "Surat-{$pendaftaran->nomor_surat}.pdf");
 
         return \Storage::disk('public')->response($pendaftaran->surat_path, $namaUnduh);

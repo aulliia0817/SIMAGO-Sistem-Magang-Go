@@ -30,7 +30,7 @@ class CekBatasPengumumanPendaftaran extends Command
         }
         $this->info("Notif H-3 batas pengumuman: {$tigaHariLagi->count()} pendaftaran.");
 
-        // ── Lewat 14 hari, masih "menunggu" → hapus & minta daftar ulang ──
+        // ── Lewat 14 hari, masih "menunggu" → tandai kedaluwarsa & minta daftar ulang ──
         $kadaluarsa = Pendaftaran::where('status', 'menunggu')
             ->whereDate('created_at', '<=', now()->subDays(14)->toDateString())
             ->with('mahasiswa.user')
@@ -42,10 +42,15 @@ class CekBatasPengumumanPendaftaran extends Command
                 $user,
                 'Pendaftaran Kedaluwarsa, Silakan Daftar Ulang',
                 'Pendaftaran magang kamu belum diproses hingga melewati estimasi pengumuman (14 hari). Silakan lakukan pendaftaran ulang.',
-                dedupeKey: "pendaftaran-kadaluarsa:user:{$user->id}:pendaftaran-{$p->id}"
+                dedupeKey: "pendaftaran-kadaluarsa:user:{$user->id}:pendaftaran-{$p->id}",
+                halaman: 'tracking',
+                pendaftaranId: $p->id
             );
-            $p->delete(); // dokumen ikut terhapus (cascadeOnDelete)
+            // Ditandai kedaluwarsa (bukan dihapus) supaya tetap tampil di
+            // Riwayat Pendaftaran calon — hanya statusnya yang berubah,
+            // sehingga calon bisa mengajukan pendaftaran baru berikutnya.
+            $p->update(['status' => 'kedaluwarsa']);
         }
-        $this->info("Pendaftaran kedaluwarsa dihapus: {$kadaluarsa->count()}.");
+        $this->info("Pendaftaran ditandai kedaluwarsa: {$kadaluarsa->count()}.");
     }
 }

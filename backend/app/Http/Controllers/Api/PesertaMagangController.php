@@ -42,6 +42,13 @@ class PesertaMagangController extends Controller
 
         $pendaftaran->mahasiswa->user()->update(['role' => 'peserta']);
 
+        Notifikasi::kirim(
+            $peserta->pembimbing->user,
+            'Anda Mendapatkan Peserta Magang Baru',
+            "{$peserta->mahasiswa->user->name} ditugaskan sebagai peserta bimbingan Anda di divisi {$peserta->divisi->nama}.",
+            halaman: 'dashboard'
+        );
+
         return new PesertaMagangResource($peserta->load(['mahasiswa.user', 'divisi', 'pembimbing.user']));
     }
 
