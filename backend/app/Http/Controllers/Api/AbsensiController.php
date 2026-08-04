@@ -20,11 +20,15 @@ class AbsensiController extends Controller
         $query = Absensi::with('pesertaMagang.mahasiswa.user', 'pesertaMagang.divisi');
 
         if ($user->role === 'pembimbing') {
-            $query->whereHas('pesertaMagang', fn ($q) => $q->where('pembimbing_id', $user->pembimbing?->id));
+            $query->whereHas('pesertaMagang', fn($q) => $q->where('pembimbing_id', $user->pembimbing?->id));
         }
 
         if ($belumVerifikasi = $request->boolean('belum_verifikasi')) {
             $query->where('diverifikasi', false);
+        }
+
+        if ($pesertaMagangId = $request->query('peserta_magang_id')) {
+            $query->where('peserta_magang_id', $pesertaMagangId);
         }
 
         return AbsensiResource::collection($query->latest('tanggal')->paginate($request->integer('per_page', 20)));

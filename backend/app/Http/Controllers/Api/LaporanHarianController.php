@@ -27,6 +27,10 @@ class LaporanHarianController extends Controller
             }
         }
 
+        if ($pesertaMagangId = $request->query('peserta_magang_id')) {
+            $query->where('peserta_magang_id', $pesertaMagangId);
+        }
+
         return LaporanHarianResource::collection($query->latest('tanggal')->paginate($request->integer('per_page', 20)));
     }
 

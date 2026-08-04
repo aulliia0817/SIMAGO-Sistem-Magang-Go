@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\PesertaMagangController;
 use App\Http\Controllers\Api\ProfilController;
 use App\Http\Controllers\Api\SertifikatController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\RekomendasiController;
 
 // ─── Public ─────────────────────────────────────────────────────────────────
 Route::post('/login', [AuthController::class, 'login']);
@@ -92,6 +93,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/peserta', [PesertaMagangController::class, 'index']);
         Route::get('/peserta/{pesertaMagang}', [PesertaMagangController::class, 'show']);
         Route::put('/peserta/{pesertaMagang}', [PesertaMagangController::class, 'update']);
+        Route::get('/peserta/{pesertaMagang}/rekomendasi', [RekomendasiController::class, 'index']);
+        Route::post('/peserta/{pesertaMagang}/rekomendasi', [RekomendasiController::class, 'store']);
 
         Route::get('/absensi', [AbsensiController::class, 'index']);
         Route::get('/laporan', [LaporanHarianController::class, 'index']);

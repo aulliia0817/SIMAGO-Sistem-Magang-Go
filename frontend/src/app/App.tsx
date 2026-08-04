@@ -91,6 +91,7 @@ type PembimbingPage =
   | "absensi-verify"
   | "review-laporan"
   | "rekomendasi"
+  | "peserta-detail"
   | "profil";
 type Page = AdminPage | CalonPage | PesertaPage | PembimbingPage;
 
@@ -152,6 +153,7 @@ type PembimbingItem = {
 type PesertaItem = {
   id: number;
   nama: string;
+  institusi: string;
   divisi: string;
   divisi_id: number;
   pembimbing: string;
@@ -190,6 +192,17 @@ type LaporanItem = {
   isi: string;
   status: string;
   catatan_pembimbing: string | null;
+};
+type RekomendasiItem = {
+  id: number;
+  pembimbing: string;
+  kedisiplinan: number;
+  teknis: number;
+  sikap: number;
+  inisiatif: number;
+  rata_rata: number;
+  catatan: string | null;
+  tanggal: string;
 };
 type SertifikatItem = {
   id: number;
@@ -5577,7 +5590,509 @@ function PesertaProfil() {
 
 // ─── Pembimbing Pages ─────────────────────────────────────────────────────────
 
-function PembimbingDashboard() {
+function DetailPesertaBimbingan({
+  pesertaId,
+  onBack,
+}: {
+  pesertaId: number;
+  onBack: () => void;
+}) {
+  const [profil, setProfil] = useState<PesertaItem | null>(null);
+  const [absensi, setAbsensi] = useState<AbsensiItem[]>([]);
+  const [laporan, setLaporan] = useState<LaporanItem[]>([]);
+  const [rekomendasi, setRekomendasi] = useState<RekomendasiItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [tab, setTab] = useState<"absensi" | "laporan" | "rekomendasi">(
+    "absensi",
+  );
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const [p, a, l, r] = await Promise.all([
+        api.get(`/peserta/${pesertaId}`),
+        api.get("/absensi", {
+          params: { peserta_magang_id: pesertaId, per_page: 100 },
+        }),
+        api.get("/laporan", {
+          params: { peserta_magang_id: pesertaId, per_page: 100 },
+        }),
+        api.get(`/peserta/${pesertaId}/rekomendasi`),
+      ]);
+      setProfil(p.data.data);
+      setAbsensi(a.data.data);
+      setLaporan(l.data.data);
+      setRekomendasi(r.data.data);
+    } catch (err) {
+      setError(apiErrorMessage(err, "Gagal memuat detail peserta."));
+    } finally {
+      setLoading(false);
+    }
+  }, [pesertaId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // ── Verifikasi absensi ──
+  const [busyAbsensiId, setBusyAbsensiId] = useState<number | null>(null);
+  async function verifyAbsensi(id: number) {
+    setBusyAbsensiId(id);
+    try {
+      await api.put(`/absensi/${id}/verifikasi`);
+      load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Gagal memverifikasi absensi."));
+    } finally {
+      setBusyAbsensiId(null);
+    }
+  }
+
+  // ── Review laporan ──
+  const [selectedLaporan, setSelectedLaporan] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState("");
+  const [submittingLaporan, setSubmittingLaporan] = useState<
+    "selesai" | "perlu-revisi" | null
+  >(null);
+  const currentLaporan = laporan.find((x) => x.id === selectedLaporan) ?? null;
+
+  useEffect(() => {
+    setFeedback(currentLaporan?.catatan_pembimbing ?? "");
+  }, [currentLaporan?.id]);
+
+  async function reviewLaporan(status: "selesai" | "perlu-revisi") {
+    if (!currentLaporan) return;
+    setSubmittingLaporan(status);
+    try {
+      await api.put(`/laporan/${currentLaporan.id}/review`, {
+        status,
+        catatan_pembimbing: feedback || undefined,
+      });
+      await load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Gagal mengirim review."));
+    } finally {
+      setSubmittingLaporan(null);
+    }
+  }
+
+  // ── Rekomendasi baru ──
+  const [rating, setRating] = useState<Record<string, number>>({
+    kedisiplinan: 4,
+    teknis: 4,
+    sikap: 4,
+    inisiatif: 4,
+  });
+  const [catatanRekomendasi, setCatatanRekomendasi] = useState("");
+  const [submittingRekomendasi, setSubmittingRekomendasi] = useState(false);
+
+  async function submitRekomendasi() {
+    setSubmittingRekomendasi(true);
+    try {
+      await api.post(`/peserta/${pesertaId}/rekomendasi`, {
+        ...rating,
+        catatan: catatanRekomendasi || undefined,
+      });
+      setCatatanRekomendasi("");
+      await load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Gagal mengirim rekomendasi."));
+    } finally {
+      setSubmittingRekomendasi(false);
+    }
+  }
+
+  if (loading) return <LoadingState />;
+  if (error) return <ErrorState message={error} onRetry={load} />;
+  if (!profil) return <EmptyState label="Data peserta tidak ditemukan." />;
+
+  const laporanDireview = laporan.filter((l) => l.status === "selesai").length;
+  const absensiHadir = absensi.filter((a) => a.status === "hadir").length;
+
+  return (
+    <div className="space-y-5">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1.5 text-sm font-medium text-[#1B4332] hover:underline"
+      >
+        <ArrowLeft size={14} /> Kembali
+      </button>
+
+      <Card>
+        <div className="flex items-start gap-4">
+          <div className="w-14 h-14 rounded-full bg-[#1B4332] flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
+            {profil.nama.charAt(0)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg font-bold text-[#1B4332]">
+                {profil.nama}
+              </h1>
+              <StatusBadge status={profil.status} />
+            </div>
+            <p className="text-sm text-[#6B7770] mt-0.5">{profil.institusi}</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 text-sm">
+              <div>
+                <p className="text-xs text-[#6B7770]">Divisi</p>
+                <p className="font-medium text-[#3D4442]">{profil.divisi}</p>
+              </div>
+              <div>
+                <p className="text-xs text-[#6B7770]">Pembimbing</p>
+                <p className="font-medium text-[#3D4442]">
+                  {profil.pembimbing}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-[#6B7770]">Periode Magang</p>
+                <p className="font-medium text-[#3D4442]">
+                  {profil.tanggal_mulai} – {profil.tanggal_selesai}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-[#6B7770]">Hari Berjalan</p>
+                <p className="font-medium text-[#3D4442]">
+                  {profil.hari_berjalan}/{profil.total_hari} hari
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <SummaryCard
+          icon={<Calendar size={18} className="text-[#1B4332]" />}
+          label="Kehadiran"
+          value={`${profil.persen}%`}
+          sub={`${absensiHadir}/${absensi.length} hadir`}
+          color="bg-[#D1FAE5]"
+        />
+        <SummaryCard
+          icon={<BookOpen size={18} className="text-[#1B4332]" />}
+          label="Laporan Dikirim"
+          value={laporan.length}
+          color="bg-[#D1FAE5]"
+        />
+        <SummaryCard
+          icon={<CheckCircle size={18} className="text-[#1B4332]" />}
+          label="Laporan Direview"
+          value={laporanDireview}
+          color="bg-[#D1FAE5]"
+        />
+        <SummaryCard
+          icon={<Award size={18} className="text-amber-700" />}
+          label="Status Magang"
+          value={profil.status === "selesai" ? "Selesai" : "Berjalan"}
+          color="bg-amber-100"
+        />
+      </div>
+
+      <div className="flex gap-2 border-b border-[#1B4332]/10">
+        {(
+          [
+            ["absensi", "Riwayat Absensi"],
+            ["laporan", "Laporan Harian"],
+            ["rekomendasi", "Rekomendasi"],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={cn(
+              "px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors",
+              tab === key
+                ? "border-[#1B4332] text-[#1B4332]"
+                : "border-transparent text-[#6B7770] hover:text-[#3D4442]",
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "absensi" && (
+        <Card>
+          {absensi.length === 0 ? (
+            <EmptyState label="Belum ada riwayat absensi." />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#1B4332]/10">
+                    {[
+                      "Tanggal",
+                      "Sift",
+                      "Masuk",
+                      "Keluar",
+                      "Keterangan",
+                      "Bukti",
+                      "Status",
+                      "Aksi",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="text-left py-2.5 px-3 text-[#6B7770] text-xs font-semibold uppercase tracking-wide"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {absensi.map((e) => (
+                    <tr key={e.id} className="border-b border-[#1B4332]/5">
+                      <td className="py-3 px-3 text-[#6B7770]">{e.tanggal}</td>
+                      <td className="py-3 px-3 text-[#6B7770] capitalize">
+                        {SIFT_OPTIONS.find((o) => o.value === e.sift)?.label ??
+                          "-"}
+                      </td>
+                      <td className="py-3 px-3 font-mono text-sm text-[#3D4442]">
+                        {e.jam_masuk ?? "-"}
+                      </td>
+                      <td className="py-3 px-3 font-mono text-sm text-[#3D4442]">
+                        {e.jam_keluar ?? "-"}
+                      </td>
+                      <td className="py-3 px-3 text-[#6B7770] max-w-[180px]">
+                        <span className="line-clamp-2">
+                          {e.keterangan ?? "-"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3">
+                        {e.bukti_url ? (
+                          <button
+                            onClick={() => openAuthenticatedFile(e.bukti_url!)}
+                            className="inline-flex items-center gap-1 text-[#1B4332] font-semibold hover:underline"
+                          >
+                            <Eye size={13} /> Lihat
+                          </button>
+                        ) : (
+                          <span className="text-[#6B7770]">-</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-3">
+                        <StatusBadge
+                          status={e.diverifikasi ? "disetujui" : "menunggu"}
+                        />
+                      </td>
+                      <td className="py-3 px-3">
+                        {!e.diverifikasi && (
+                          <button
+                            disabled={busyAbsensiId === e.id}
+                            onClick={() => verifyAbsensi(e.id)}
+                            className="p-1.5 rounded-lg bg-[#D1FAE5] text-[#1B4332] hover:bg-[#A8C3AD] transition-colors disabled:opacity-50"
+                            title="Verifikasi"
+                          >
+                            <Check size={13} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {tab === "laporan" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <Card>
+            <h3 className="font-bold text-[#1B4332] mb-4">Daftar Laporan</h3>
+            {laporan.length === 0 ? (
+              <EmptyState label="Belum ada laporan." />
+            ) : (
+              <div className="space-y-2">
+                {laporan.map((l) => (
+                  <button
+                    key={l.id}
+                    onClick={() => setSelectedLaporan(l.id)}
+                    className={cn(
+                      "w-full text-left p-3 rounded-xl border transition-colors",
+                      selectedLaporan === l.id
+                        ? "border-[#1B4332] bg-[#D1FAE5]"
+                        : "border-[#1B4332]/10 bg-[#F1F3F1] hover:border-[#1B4332]/30",
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-sm text-[#3D4442]">
+                          {l.judul}
+                        </p>
+                        <p className="text-xs text-[#6B7770] mt-0.5">
+                          {l.tanggal}
+                        </p>
+                      </div>
+                      <StatusBadge status={l.status} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Card>
+          <Card>
+            {currentLaporan ? (
+              <div className="space-y-4">
+                <h3 className="font-bold text-[#1B4332]">Detail Laporan</h3>
+                <div className="p-3 rounded-xl bg-[#F1F3F1]">
+                  <p className="font-bold text-sm text-[#1B4332]">
+                    {currentLaporan.judul}
+                  </p>
+                  <p className="text-xs text-[#6B7770] mt-0.5">
+                    {currentLaporan.tanggal}
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-[#F1F3F1] text-sm text-[#3D4442] whitespace-pre-wrap">
+                  {currentLaporan.isi}
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
+                    Feedback / Komentar
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    placeholder="Tulis feedback untuk peserta..."
+                    className="w-full px-3 py-2 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20 resize-none"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    disabled={submittingLaporan !== null}
+                    onClick={() => reviewLaporan("selesai")}
+                    className="flex-1 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <Send size={13} />{" "}
+                    {submittingLaporan === "selesai"
+                      ? "Mengirim..."
+                      : "Kirim Feedback"}
+                  </button>
+                  <button
+                    disabled={submittingLaporan !== null}
+                    onClick={() => reviewLaporan("perlu-revisi")}
+                    className="px-4 py-2 border border-red-300 text-red-600 text-sm font-semibold rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                  >
+                    {submittingLaporan === "perlu-revisi"
+                      ? "Mengirim..."
+                      : "Revisi"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-48 text-center">
+                <BookOpen size={32} className="text-[#6B7770]/40 mb-3" />
+                <p className="text-sm text-[#6B7770]">
+                  Pilih laporan untuk melihat detail
+                </p>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {tab === "rekomendasi" && (
+        <div className="space-y-4">
+          {rekomendasi.length > 0 && (
+            <Card>
+              <h3 className="font-bold text-[#1B4332] mb-3">
+                Riwayat Rekomendasi
+              </h3>
+              <div className="space-y-3">
+                {rekomendasi.map((r) => (
+                  <div key={r.id} className="p-3 rounded-xl bg-[#F1F3F1]">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-[#3D4442]">
+                        {r.pembimbing} — {r.tanggal}
+                      </p>
+                      <span className="text-sm font-bold text-[#1B4332]">
+                        Rata-rata {r.rata_rata}/5
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2 text-xs text-[#6B7770]">
+                      <p>Kedisiplinan: {r.kedisiplinan}</p>
+                      <p>Teknis: {r.teknis}</p>
+                      <p>Sikap: {r.sikap}</p>
+                      <p>Inisiatif: {r.inisiatif}</p>
+                    </div>
+                    {r.catatan && (
+                      <p className="text-sm text-[#3D4442] mt-2 whitespace-pre-wrap">
+                        {r.catatan}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          <Card>
+            <h3 className="font-bold text-[#1B4332] mb-4">
+              Beri Rekomendasi Baru
+            </h3>
+            <div className="space-y-3 mb-5">
+              {Object.entries({
+                kedisiplinan: "Kedisiplinan",
+                teknis: "Kemampuan Teknis",
+                sikap: "Sikap & Attitude",
+                inisiatif: "Inisiatif",
+              }).map(([key, label]) => (
+                <div key={key}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-[#3D4442]">
+                      {label}
+                    </span>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <button
+                          key={n}
+                          onClick={() => setRating((r) => ({ ...r, [key]: n }))}
+                          className={cn(
+                            "w-6 h-6 rounded-full text-xs font-bold transition-colors",
+                            n <= rating[key]
+                              ? "bg-[#1B4332] text-white"
+                              : "bg-[#F1F3F1] text-[#6B7770] hover:bg-[#D1FAE5]",
+                          )}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <textarea
+              rows={3}
+              value={catatanRekomendasi}
+              onChange={(e) => setCatatanRekomendasi(e.target.value)}
+              placeholder="Catatan tambahan (opsional)..."
+              className="w-full px-3 py-2 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20 resize-none mb-4"
+            />
+            <button
+              disabled={submittingRekomendasi}
+              onClick={submitRekomendasi}
+              className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
+            >
+              <Send size={14} />{" "}
+              {submittingRekomendasi
+                ? "Mengirim..."
+                : "Submit Rekomendasi ke Admin"}
+            </button>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PembimbingDashboard({
+  onSelectPeserta,
+}: {
+  onSelectPeserta: (id: number) => void;
+}) {
   const [stats, setStats] = useState<any>(null);
   const [list, setList] = useState<PesertaItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -5652,9 +6167,10 @@ function PembimbingDashboard() {
         ) : (
           <div className="space-y-3">
             {list.map((p) => (
-              <div
+              <button
                 key={p.id}
-                className="flex items-center gap-4 p-3 rounded-xl bg-[#F1F3F1]"
+                onClick={() => onSelectPeserta(p.id)}
+                className="w-full flex items-center gap-4 p-3 rounded-xl bg-[#F1F3F1] hover:bg-[#D1FAE5] transition-colors text-left"
               >
                 <div className="w-9 h-9 rounded-full bg-[#1B4332] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                   {p.nama.charAt(0)}
@@ -5678,7 +6194,7 @@ function PembimbingDashboard() {
                     Sisa {Math.max(0, p.total_hari - p.hari_berjalan)} hari
                   </p>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -5687,7 +6203,13 @@ function PembimbingDashboard() {
   );
 }
 
-function AbsensiVerify({ canVerify = true }: { canVerify?: boolean }) {
+function AbsensiVerify({
+  canVerify = true,
+  onSelectPeserta,
+}: {
+  canVerify?: boolean;
+  onSelectPeserta?: (id: number) => void;
+}) {
   const [entries, setEntries] = useState<AbsensiItem[]>([]);
   const [onlyPending, setOnlyPending] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -5781,7 +6303,16 @@ function AbsensiVerify({ canVerify = true }: { canVerify?: boolean }) {
                     className="border-b border-[#1B4332]/5 hover:bg-[#F1F3F1]/50 transition-colors"
                   >
                     <td className="py-3 px-3 font-semibold text-[#1B4332]">
-                      {e.nama}
+                      {onSelectPeserta ? (
+                        <button
+                          onClick={() => onSelectPeserta(e.peserta_magang_id)}
+                          className="hover:underline"
+                        >
+                          {e.nama}
+                        </button>
+                      ) : (
+                        e.nama
+                      )}
                     </td>
                     <td className="py-3 px-3 text-[#6B7770]">{e.tanggal}</td>
                     <td className="py-3 px-3 text-[#6B7770] capitalize">
@@ -5851,7 +6382,11 @@ function AbsensiVerify({ canVerify = true }: { canVerify?: boolean }) {
   );
 }
 
-function ReviewLaporan() {
+function ReviewLaporan({
+  onSelectPeserta,
+}: {
+  onSelectPeserta: (id: number) => void;
+}) {
   const [list, setList] = useState<LaporanItem[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -5933,7 +6468,16 @@ function ReviewLaporan() {
                         {l.judul}
                       </p>
                       <p className="text-xs text-[#6B7770] mt-0.5">
-                        {l.peserta} — {l.tanggal}
+                        <span
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            onSelectPeserta(l.peserta_magang_id);
+                          }}
+                          className="hover:underline"
+                        >
+                          {l.peserta}
+                        </span>{" "}
+                        — {l.tanggal}
                       </p>
                     </div>
                     <StatusBadge status={l.status} />
@@ -6003,7 +6547,11 @@ function ReviewLaporan() {
   );
 }
 
-function Rekomendasi() {
+function Rekomendasi({
+  onSelectPeserta,
+}: {
+  onSelectPeserta: (id: number) => void;
+}) {
   const [list, setList] = useState<PesertaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -6051,9 +6599,7 @@ function Rekomendasi() {
   async function submitRekomendasi(p: PesertaItem) {
     setSubmittingId(p.id);
     try {
-      // Backend menandai peserta sebagai "selesai" — admin lalu bisa menerbitkan
-      // sertifikat dari halaman Kelola Sertifikat berdasarkan rekomendasi ini.
-      await api.put(`/peserta/${p.id}`, { status: "selesai" });
+      await api.post(`/peserta/${p.id}/rekomendasi`, ratingFor(p.id));
       load();
     } catch (err) {
       alert(apiErrorMessage(err, "Gagal mengirim rekomendasi."));
@@ -6084,7 +6630,12 @@ function Rekomendasi() {
                     {p.nama.charAt(0)}
                   </div>
                   <div className="flex-1">
-                    <p className="font-bold text-[#1B4332]">{p.nama}</p>
+                    <button
+                      onClick={() => onSelectPeserta(p.id)}
+                      className="font-bold text-[#1B4332] hover:underline"
+                    >
+                      {p.nama}
+                    </button>
                     <p className="text-sm text-[#6B7770]">
                       Divisi {p.divisi} — Hari ke-{p.hari_berjalan}/
                       {p.total_hari}, Kehadiran {p.persen}%
@@ -6283,6 +6834,9 @@ export default function App() {
   const [selectedPendaftaranId, setSelectedPendaftaranId] = useState<
     number | null
   >(null);
+  const [selectedPesertaId, setSelectedPesertaId] = useState<number | null>(
+    null,
+  );
 
   function handleLogin(r: Role, name: string, token: string) {
     sessionStorage.setItem("simago_token", token);
@@ -6385,13 +6939,55 @@ export default function App() {
     if (role === "pembimbing") {
       switch (page as PembimbingPage) {
         case "dashboard":
-          return <PembimbingDashboard />;
+          return (
+            <PembimbingDashboard
+              onSelectPeserta={(id) => {
+                setSelectedPesertaId(id);
+                setPage("peserta-detail");
+              }}
+            />
+          );
         case "absensi-verify":
-          return <AbsensiVerify />;
+          return (
+            <AbsensiVerify
+              onSelectPeserta={(id) => {
+                setSelectedPesertaId(id);
+                setPage("peserta-detail");
+              }}
+            />
+          );
         case "review-laporan":
-          return <ReviewLaporan />;
+          return (
+            <ReviewLaporan
+              onSelectPeserta={(id) => {
+                setSelectedPesertaId(id);
+                setPage("peserta-detail");
+              }}
+            />
+          );
         case "rekomendasi":
-          return <Rekomendasi />;
+          return (
+            <Rekomendasi
+              onSelectPeserta={(id) => {
+                setSelectedPesertaId(id);
+                setPage("peserta-detail");
+              }}
+            />
+          );
+        case "peserta-detail":
+          return selectedPesertaId ? (
+            <DetailPesertaBimbingan
+              pesertaId={selectedPesertaId}
+              onBack={() => setPage("dashboard")}
+            />
+          ) : (
+            <PembimbingDashboard
+              onSelectPeserta={(id) => {
+                setSelectedPesertaId(id);
+                setPage("peserta-detail");
+              }}
+            />
+          );
         case "profil":
           return <PembimbingProfil />;
       }

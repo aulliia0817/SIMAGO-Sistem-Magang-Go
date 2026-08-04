@@ -19,6 +19,7 @@ class PesertaMagangResource extends JsonResource
         return [
             'id' => $this->id,
             'nama' => $this->mahasiswa->user->name ?? '-',
+            'institusi' => $this->mahasiswa->institusi ?? '-',
             'divisi' => $this->divisi->nama ?? '-',
             'divisi_id' => $this->divisi_id,
             'pembimbing' => $this->pembimbing->user->name ?? '-',

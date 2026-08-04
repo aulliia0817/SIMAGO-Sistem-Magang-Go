@@ -10,8 +10,13 @@ class PesertaMagang extends Model
     use HasFactory;
 
     protected $fillable = [
-        'pendaftaran_id', 'mahasiswa_id', 'divisi_id', 'pembimbing_id',
-        'tanggal_mulai', 'tanggal_selesai', 'status',
+        'pendaftaran_id',
+        'mahasiswa_id',
+        'divisi_id',
+        'pembimbing_id',
+        'tanggal_mulai',
+        'tanggal_selesai',
+        'status',
     ];
 
     protected function casts(): array
@@ -55,6 +60,11 @@ class PesertaMagang extends Model
     public function sertifikat()
     {
         return $this->hasOne(Sertifikat::class);
+    }
+
+    public function rekomendasis()
+    {
+        return $this->hasMany(Rekomendasi::class)->latest();
     }
 
     public function getPersenKehadiranAttribute(): int
