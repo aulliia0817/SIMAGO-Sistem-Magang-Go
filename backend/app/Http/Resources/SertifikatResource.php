@@ -17,7 +17,7 @@ class SertifikatResource extends JsonResource
             'nomor' => $this->nomor,
             'status' => $this->status,
             'tanggal_terbit' => optional($this->tanggal_terbit)->format('d M Y'),
-            'file_url' => $this->file_path ? \Storage::disk('public')->url($this->file_path) : null,
+            'file_url' => $this->file_path ? "/sertifikat/{$this->id}/file" : null,
         ];
     }
 }

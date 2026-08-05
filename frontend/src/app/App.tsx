@@ -3038,18 +3038,42 @@ function AdminMonitoring() {
 
 function AdminSertifikat() {
   const [candidates, setCandidates] = useState<PesertaItem[]>([]);
+  const [issued, setIssued] = useState<SertifikatItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
+
+  const [nomorMap, setNomorMap] = useState<Record<number, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const { data } = await api.get("/peserta", {
-        params: { status: "selesai" },
+      const [candRes, issuedRes] = await Promise.all([
+        api.get("/peserta", { params: { status: "selesai" } }),
+        api.get("/sertifikat", { params: { status: "terbit" } }),
+      ]);
+      const cands: PesertaItem[] = candRes.data.data;
+      const issuedList: SertifikatItem[] = issuedRes.data.data;
+      setCandidates(cands);
+      setIssued(issuedList);
+      // Isi nomor usulan untuk peserta yang belum pernah diketik admin di sesi
+      // ini: kalau sudah pernah terbit, pakai nomor yang ada (biar kelihatan
+      // apa yang akan diganti); kalau belum, usulkan nomor otomatis baru.
+      setNomorMap((prev) => {
+        const next = { ...prev };
+        cands.forEach((p) => {
+          if (next[p.id] === undefined) {
+            const existing = issuedList.find(
+              (s) => s.peserta_magang_id === p.id,
+            );
+            next[p.id] =
+              existing?.nomor ??
+              `SIMAGO/${new Date().getFullYear()}/${p.id.toString().padStart(4, "0")}`;
+          }
+        });
+        return next;
       });
-      setCandidates(data.data);
     } catch (err) {
       setError(apiErrorMessage(err, "Gagal memuat data peserta."));
     } finally {
@@ -3062,14 +3086,23 @@ function AdminSertifikat() {
   }, [load]);
 
   async function terbitkan(p: PesertaItem) {
+    const nomor = (nomorMap[p.id] ?? "").trim();
+    if (!nomor) {
+      alert("Nomor sertifikat wajib diisi.");
+      return;
+    }
+    const existing = issued.find((s) => s.peserta_magang_id === p.id);
     setBusyId(p.id);
     try {
-      const nomor = `SIMAGO/${new Date().getFullYear()}/${p.id.toString().padStart(4, "0")}`;
-      const { data } = await api.post("/sertifikat", {
-        peserta_magang_id: p.id,
-        nomor,
-      });
-      await api.put(`/sertifikat/${data.data.id}`, { status: "terbit" });
+      if (existing) {
+        // Sudah pernah terbit — ganti nomor & file lamanya, bukan bikin baru.
+        await api.put(`/sertifikat/${existing.id}`, { nomor });
+      } else {
+        await api.post("/sertifikat", {
+          peserta_magang_id: p.id,
+          nomor,
+        });
+      }
       load();
     } catch (err) {
       alert(apiErrorMessage(err, "Gagal menerbitkan sertifikat."));
@@ -3082,66 +3115,116 @@ function AdminSertifikat() {
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-[#1B4332]">Kelola Sertifikat</h1>
 
-      <Card>
-        <h3 className="font-bold text-[#1B4332] mb-4">Template Sertifikat</h3>
-        <div className="flex items-center gap-4 p-4 rounded-xl border-2 border-dashed border-[#1B4332]/20 bg-[#F1F3F1]">
-          <div className="w-12 h-12 rounded-xl bg-[#1B4332] flex items-center justify-center text-white">
-            <Award size={20} />
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold text-[#3D4442]">
-              Template_Sertifikat_SIMAGO_2025.docx
-            </p>
-            <p className="text-xs text-[#6B7770]">
-              Terakhir diperbarui: 1 Juli 2025
-            </p>
-          </div>
-          <button className="flex items-center gap-2 px-3 py-2 bg-[#1B4332] text-white text-xs font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors">
-            <Upload size={13} /> Perbarui
-          </button>
-        </div>
-      </Card>
-
-      <Card>
-        <h3 className="font-bold text-[#1B4332] mb-4">
-          Peserta Siap Terima Sertifikat
-        </h3>
-        {loading ? (
-          <LoadingState />
-        ) : error ? (
-          <ErrorState message={error} onRetry={load} />
-        ) : candidates.length === 0 ? (
-          <EmptyState label="Belum ada peserta yang menyelesaikan magang." />
-        ) : (
-          <div className="space-y-3">
-            {candidates.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-center gap-4 p-3 rounded-xl bg-[#F1F3F1]"
-              >
-                <div className="w-9 h-9 rounded-full bg-[#1B4332] flex items-center justify-center text-white text-sm font-bold">
-                  {p.nama.charAt(0)}
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-[#3D4442] text-sm">
-                    {p.nama}
-                  </p>
-                  <p className="text-xs text-[#6B7770]">
-                    {p.divisi} — Pembimbing: {p.pembimbing}
-                  </p>
-                </div>
-                <button
-                  disabled={busyId === p.id}
-                  onClick={() => terbitkan(p)}
-                  className="px-3 py-1.5 bg-[#1B4332] text-white text-xs font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
-                >
-                  {busyId === p.id ? "Memproses..." : "Approve & Terbitkan"}
-                </button>
+      {loading ? (
+        <LoadingState />
+      ) : error ? (
+        <ErrorState message={error} onRetry={load} />
+      ) : (
+        <>
+          <Card>
+            <h3 className="font-bold text-[#1B4332] mb-4">
+              Peserta Siap Terima Sertifikat
+            </h3>
+            {candidates.length === 0 ? (
+              <EmptyState label="Belum ada peserta yang menyelesaikan magang." />
+            ) : (
+              <div className="space-y-3">
+                {candidates.map((p) => {
+                  const existing = issued.find(
+                    (s) => s.peserta_magang_id === p.id,
+                  );
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex items-center gap-3 p-3 rounded-xl bg-[#F1F3F1] flex-wrap"
+                    >
+                      <div className="w-9 h-9 rounded-full bg-[#1B4332] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                        {p.nama.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-40">
+                        <p className="font-semibold text-[#3D4442] text-sm">
+                          {p.nama}
+                        </p>
+                        <p className="text-xs text-[#6B7770]">
+                          {p.divisi} — Pembimbing: {p.pembimbing}
+                        </p>
+                        {existing && (
+                          <p className="text-xs text-amber-600 mt-0.5">
+                            Sudah pernah terbit — nomor & file lama akan
+                            diganti.
+                          </p>
+                        )}
+                      </div>
+                      <input
+                        value={nomorMap[p.id] ?? ""}
+                        onChange={(e) =>
+                          setNomorMap((prev) => ({
+                            ...prev,
+                            [p.id]: e.target.value,
+                          }))
+                        }
+                        placeholder="Nomor sertifikat"
+                        className="px-3 py-1.5 rounded-lg border border-[#1B4332]/15 bg-white text-xs text-[#3D4442] w-44 focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+                      />
+                      <button
+                        disabled={
+                          busyId === p.id || !(nomorMap[p.id] ?? "").trim()
+                        }
+                        onClick={() => terbitkan(p)}
+                        className="px-3 py-1.5 bg-[#1B4332] text-white text-xs font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
+                      >
+                        {busyId === p.id
+                          ? "Menerbitkan..."
+                          : existing
+                            ? "Terbitkan Ulang"
+                            : "Approve & Terbitkan"}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-        )}
-      </Card>
+            )}
+          </Card>
+
+          <Card>
+            <h3 className="font-bold text-[#1B4332] mb-4">
+              Sertifikat Sudah Terbit
+            </h3>
+            {issued.length === 0 ? (
+              <EmptyState label="Belum ada sertifikat yang diterbitkan." />
+            ) : (
+              <div className="space-y-3">
+                {issued.map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex items-center gap-4 p-3 rounded-xl bg-[#F1F3F1]"
+                  >
+                    <div className="w-9 h-9 rounded-full bg-[#D1FAE5] flex items-center justify-center text-[#1B4332]">
+                      <Award size={16} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-[#3D4442] text-sm">
+                        {s.nama}
+                      </p>
+                      <p className="text-xs text-[#6B7770]">
+                        No. {s.nomor} — {s.divisi} — terbit {s.tanggal_terbit}
+                      </p>
+                    </div>
+                    {s.file_url && (
+                      <button
+                        onClick={() => openAuthenticatedFile(s.file_url!)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 border border-[#1B4332]/20 text-[#1B4332] text-xs font-semibold rounded-lg hover:bg-white transition-colors"
+                      >
+                        <Eye size={13} /> Lihat
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </>
+      )}
     </div>
   );
 }
