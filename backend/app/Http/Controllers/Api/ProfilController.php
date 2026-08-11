@@ -10,14 +10,13 @@ class ProfilController extends Controller
 {
     public function show(Request $request)
     {
-        $user = $request->user()->load('mahasiswa', 'pembimbing.divisi');
+        $user = $request->user()->load('mahasiswa');
 
         return response()->json([
             'nama' => $user->name,
             'email' => $user->email,
             'role' => $user->role,
             'mahasiswa' => $user->mahasiswa,
-            'pembimbing' => $user->pembimbing,
         ]);
     }
 

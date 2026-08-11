@@ -7,7 +7,6 @@ use App\Http\Controllers\Api\DivisiController;
 use App\Http\Controllers\Api\DokumenController;
 use App\Http\Controllers\Api\LaporanHarianController;
 use App\Http\Controllers\Api\NotifikasiController;
-use App\Http\Controllers\Api\PembimbingController;
 use App\Http\Controllers\Api\PendaftaranController;
 use App\Http\Controllers\Api\PengaturanController;
 use App\Http\Controllers\Api\PesertaMagangController;
@@ -65,21 +64,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/laporan/{laporanHarian}/revisi', [LaporanHarianController::class, 'revise']);
     });
 
-    // ── Pembimbing Lapangan ───────────────────────────────────────────────
-    Route::middleware('role:pembimbing,admin')->group(function () {
-        Route::put('/absensi/{absensi}/verifikasi', [AbsensiController::class, 'verify']);
-        Route::put('/laporan/{laporanHarian}/review', [LaporanHarianController::class, 'review']);
-    });
-
     // ── Admin ──────────────────────────────────────────────────────────────
     Route::middleware('role:admin')->group(function () {
         Route::apiResource('divisi', DivisiController::class)->except(['index', 'show']);
-        Route::apiResource('pembimbing', PembimbingController::class)->except(['show']);
 
         Route::get('/pendaftar', [PendaftaranController::class, 'index']);
         Route::get('/pendaftar/{pendaftaran}', [PendaftaranController::class, 'show']);
         Route::put('/pendaftar/{pendaftaran}', [PendaftaranController::class, 'updateStatus']);
         Route::delete('/pendaftar/{pendaftaran}', [PendaftaranController::class, 'destroy']);
+
+        Route::put('/laporan/{laporanHarian}/review', [LaporanHarianController::class, 'review']);
 
         Route::post('/sertifikat', [SertifikatController::class, 'store']);
         Route::put('/sertifikat/{sertifikat}', [SertifikatController::class, 'update']);
@@ -88,8 +82,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     });
 
-    // ── Bersama (admin + pembimbing) ──────────────────────────────────────
-    Route::middleware('role:admin,pembimbing')->group(function () {
+
+    // ── Admin: peserta, absensi, laporan, sertifikat, ──────────
+    Route::middleware('role:admin')->group(function () {
         Route::get('/peserta', [PesertaMagangController::class, 'index']);
         Route::get('/peserta/{pesertaMagang}', [PesertaMagangController::class, 'show']);
         Route::put('/peserta/{pesertaMagang}', [PesertaMagangController::class, 'update']);

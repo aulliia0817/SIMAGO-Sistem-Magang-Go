@@ -11,7 +11,7 @@ class RekomendasiResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'pembimbing' => $this->pembimbing->user->name ?? '-',
+            'diberikan_oleh' => 'Admin',
             'kedisiplinan' => $this->kedisiplinan,
             'teknis' => $this->teknis,
             'sikap' => $this->sikap,

@@ -10,24 +10,15 @@ use Illuminate\Http\Request;
 
 class RekomendasiController extends Controller
 {
-    /** Admin/Pembimbing: riwayat rekomendasi/penilaian untuk satu peserta. */
+    /** Admin: riwayat rekomendasi/penilaian untuk satu peserta. */
     public function index(PesertaMagang $pesertaMagang)
     {
-        return RekomendasiResource::collection(
-            $pesertaMagang->rekomendasis()->with('pembimbing.user')->get()
-        );
+        return RekomendasiResource::collection($pesertaMagang->rekomendasis()->get());
     }
 
-    /** Pembimbing: beri rekomendasi/penilaian kelulusan untuk peserta bimbingan. */
+    /** Admin: beri rekomendasi/penilaian kelulusan peserta. */
     public function store(Request $request, PesertaMagang $pesertaMagang)
     {
-        $user = $request->user();
-        abort_unless(
-            $user->role === 'admin' || $pesertaMagang->pembimbing_id === $user->pembimbing?->id,
-            403,
-            'Anda tidak memiliki akses untuk memberi rekomendasi peserta ini.'
-        );
-
         $data = $request->validate([
             'kedisiplinan' => ['required', 'integer', 'min:1', 'max:5'],
             'teknis' => ['required', 'integer', 'min:1', 'max:5'],
@@ -36,19 +27,17 @@ class RekomendasiController extends Controller
             'catatan' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $rekomendasi = $pesertaMagang->rekomendasis()->create($data + [
-            'pembimbing_id' => $user->pembimbing?->id,
-        ]);
+        $rekomendasi = $pesertaMagang->rekomendasis()->create($data);
 
         $pesertaMagang->update(['status' => 'selesai']);
 
         Notifikasi::kirim(
             $pesertaMagang->mahasiswa->user,
             'Rekomendasi Kelulusan Diterbitkan',
-            'Pembimbing Anda telah memberikan rekomendasi kelulusan magang. Admin akan menerbitkan sertifikat.',
+            'Admin telah memberikan rekomendasi kelulusan magang. Sertifikat akan segera diterbitkan.',
             halaman: 'sertifikat-peserta'
         );
 
-        return new RekomendasiResource($rekomendasi->load('pembimbing.user'));
+        return new RekomendasiResource($rekomendasi);
     }
 }

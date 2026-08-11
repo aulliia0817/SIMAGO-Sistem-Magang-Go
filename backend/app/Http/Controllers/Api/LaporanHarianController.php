@@ -14,21 +14,12 @@ class LaporanHarianController extends Controller
 {
     public function index(Request $request)
     {
-        $user = $request->user();
         $query = LaporanHarian::with('pesertaMagang.mahasiswa.user');
-
-        if ($user->role === 'pembimbing') {
-            $query->whereHas('pesertaMagang', fn($q) => $q->where('pembimbing_id', $user->pembimbing?->id));
-        }
 
         if ($status = $request->query('status')) {
             if ($status !== 'semua') {
                 $query->where('status', $status);
             }
-        }
-
-        if ($pesertaMagangId = $request->query('peserta_magang_id')) {
-            $query->where('peserta_magang_id', $pesertaMagangId);
         }
 
         return LaporanHarianResource::collection($query->latest('tanggal')->paginate($request->integer('per_page', 20)));
@@ -49,27 +40,19 @@ class LaporanHarianController extends Controller
 
         $laporan = $peserta->laporanHarians()->create($request->validated() + ['status' => 'belum-review']);
 
-        if ($peserta->pembimbing) {
-            Notifikasi::kirim(
-                $peserta->pembimbing->user,
-                'Laporan Harian Baru Menunggu Review',
-                "{$peserta->mahasiswa->user->name} mengirim laporan \"{$laporan->judul}\" untuk direview.",
-                halaman: 'review-laporan'
-            );
-        }
+        Notifikasi::kirimKeRole(
+            'admin',
+            'Laporan Harian Baru Menunggu Review',
+            "{$peserta->mahasiswa->user->name} mengirim laporan \"{$laporan->judul}\" untuk direview.",
+            'review-laporan'
+        );
 
         return new LaporanHarianResource($laporan);
     }
 
+    /** Admin: review laporan harian peserta. */
     public function review(ReviewLaporanHarianRequest $request, LaporanHarian $laporanHarian)
     {
-        $user = $request->user();
-        abort_unless(
-            $user->role === 'admin' || $laporanHarian->pesertaMagang->pembimbing_id === $user->pembimbing?->id,
-            403,
-            'Anda tidak memiliki akses untuk mereview laporan ini.'
-        );
-
         $laporanHarian->update($request->validated());
 
         $penerima = $laporanHarian->pesertaMagang->mahasiswa->user;
@@ -77,13 +60,13 @@ class LaporanHarianController extends Controller
         if ($data['status'] === 'perlu-revisi') {
             Notifikasi::kirim($penerima, 'Laporan Perlu Direvisi', "Laporan \"{$laporanHarian->judul}\" perlu direvisi. " . ($data['catatan_pembimbing'] ?? ''), halaman: 'laporan-peserta');
         } elseif (!empty($data['catatan_pembimbing'])) {
-            Notifikasi::kirim($penerima, 'Pembimbing Memberikan Komentar', "Komentar untuk laporan \"{$laporanHarian->judul}\": {$data['catatan_pembimbing']}", halaman: 'laporan-peserta');
+            Notifikasi::kirim($penerima, 'Admin Memberikan Komentar', "Komentar untuk laporan \"{$laporanHarian->judul}\": {$data['catatan_pembimbing']}", halaman: 'laporan-peserta');
         }
 
         return new LaporanHarianResource($laporanHarian);
     }
 
-    /** Peserta: revisi ulang laporan yang diminta pembimbing untuk direvisi. */
+    /** Peserta: revisi ulang laporan yang diminta admin untuk direvisi. */
     public function revise(Request $request, LaporanHarian $laporanHarian)
     {
         $peserta = $request->user()->mahasiswa?->pesertaMagang;
@@ -101,14 +84,12 @@ class LaporanHarianController extends Controller
 
         $laporanHarian->update($data + ['status' => 'belum-review']);
 
-        if ($peserta->pembimbing) {
-            Notifikasi::kirim(
-                $peserta->pembimbing->user,
-                'Peserta Merevisi Laporan',
-                "{$peserta->mahasiswa->user->name} mengirim revisi untuk laporan \"{$laporanHarian->judul}\".",
-                halaman: 'review-laporan'
-            );
-        }
+        Notifikasi::kirimKeRole(
+            'admin',
+            'Peserta Merevisi Laporan',
+            "{$peserta->mahasiswa->user->name} mengirim revisi untuk laporan \"{$laporanHarian->judul}\".",
+            'review-laporan'
+        );
 
         return new LaporanHarianResource($laporanHarian);
     }

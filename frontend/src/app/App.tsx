@@ -6,7 +6,6 @@ import {
   FileCheck,
   ClipboardList,
   MapPin,
-  UserCog,
   BarChart3,
   Award,
   FileText,
@@ -66,16 +65,18 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Role = "admin" | "calon" | "peserta" | "pembimbing";
+type Role = "admin" | "calon" | "peserta";
 type AdminPage =
   | "dashboard"
   | "pendaftar"
   | "verifikasi"
   | "penempatan"
-  | "pembimbing-akun"
   | "divisi"
   | "monitoring"
   | "absensi-riwayat"
+  | "review-laporan"
+  | "rekomendasi"
+  | "peserta-detail"
   | "sertifikat"
   | "laporan"
   | "profil";
@@ -86,14 +87,7 @@ type CalonPage =
   | "tracking"
   | "profil";
 type PesertaPage = CalonPage | "laporan-peserta" | "sertifikat-peserta";
-type PembimbingPage =
-  | "dashboard"
-  | "absensi-verify"
-  | "review-laporan"
-  | "rekomendasi"
-  | "peserta-detail"
-  | "profil";
-type Page = AdminPage | CalonPage | PesertaPage | PembimbingPage;
+type Page = AdminPage | CalonPage | PesertaPage;
 
 // ─── API Data Types ─────────────────────────────────────────────────────────
 // Seluruh data di bawah ini sekarang datang dari Laravel API (bukan mock lagi).
@@ -140,24 +134,12 @@ type DokumenItem = {
   file_url: string | null;
   file_name: string | null;
 };
-type PembimbingItem = {
-  id: number;
-  nama: string;
-  email: string;
-  nip: string;
-  divisi: string;
-  divisi_id: number;
-  peserta: number;
-  status: string;
-};
 type PesertaItem = {
   id: number;
   nama: string;
   institusi: string;
   divisi: string;
   divisi_id: number;
-  pembimbing: string;
-  pembimbing_id: number | null;
   tanggal_mulai: string;
   tanggal_selesai: string;
   hari_berjalan: number;
@@ -195,7 +177,7 @@ type LaporanItem = {
 };
 type RekomendasiItem = {
   id: number;
-  pembimbing: string;
+  diberikan_oleh: string;
   kedisiplinan: number;
   teknis: number;
   sikap: number;
@@ -384,11 +366,6 @@ function getNavItems(role: Role): NavItem[] {
         page: "penempatan",
       },
       {
-        icon: <UserCog size={18} />,
-        label: "Manajemen Pembimbing",
-        page: "pembimbing-akun",
-      },
-      {
         icon: <Briefcase size={18} />,
         label: "Kelola Divisi",
         page: "divisi",
@@ -404,30 +381,6 @@ function getNavItems(role: Role): NavItem[] {
         page: "absensi-riwayat",
       },
       {
-        icon: <Award size={18} />,
-        label: "Kelola Sertifikat",
-        page: "sertifikat",
-      },
-      {
-        icon: <FileText size={18} />,
-        label: "Laporan & Rekap",
-        page: "laporan",
-      },
-    ];
-  }
-  if (role === "pembimbing") {
-    return [
-      {
-        icon: <LayoutDashboard size={18} />,
-        label: "Dashboard",
-        page: "dashboard",
-      },
-      {
-        icon: <Fingerprint size={18} />,
-        label: "Verifikasi Absensi",
-        page: "absensi-verify",
-      },
-      {
         icon: <BookOpen size={18} />,
         label: "Review Laporan",
         page: "review-laporan",
@@ -436,6 +389,16 @@ function getNavItems(role: Role): NavItem[] {
         icon: <Star size={18} />,
         label: "Rekomendasi Kelulusan",
         page: "rekomendasi",
+      },
+      {
+        icon: <Award size={18} />,
+        label: "Kelola Sertifikat",
+        page: "sertifikat",
+      },
+      {
+        icon: <FileText size={18} />,
+        label: "Laporan & Rekap",
+        page: "laporan",
       },
     ];
   }
@@ -495,7 +458,6 @@ function Sidebar({
     admin: "Administrator",
     calon: "Calon Magang",
     peserta: "Peserta Magang",
-    pembimbing: "Pembimbing Lapangan",
   };
 
   return (
@@ -902,11 +864,6 @@ const DEMO_ACCOUNTS = {
     password: "admin123",
     name: "Admin SIMAGO",
   },
-  pembimbing: {
-    email: "pembimbing@simago.id",
-    password: "pembimbing123",
-    name: "Ir. Hendra Wijaya",
-  },
   calon: {
     email: "calon@simago.id",
     password: "calon123",
@@ -921,7 +878,6 @@ const DEMO_ACCOUNTS = {
 
 const ROLE_TABS: { key: Role; label: string }[] = [
   { key: "admin", label: "Admin" },
-  { key: "pembimbing", label: "Pembimbing" },
   { key: "calon", label: "Calon Magang" },
   { key: "peserta", label: "Peserta Magang" },
 ];
@@ -1154,8 +1110,8 @@ function LoginPage({
                   Daftar sebagai Calon Magang
                 </p>
                 <p className="text-xs text-[#6B7770] mt-1">
-                  Akun Pembimbing dan Admin dibuat oleh administrator, bukan
-                  lewat pendaftaran mandiri.
+                  Akun Admin dibuat oleh administrator, bukan lewat pendaftaran
+                  mandiri.
                 </p>
               </div>
 
@@ -1362,9 +1318,9 @@ function AdminDashboard() {
           color="bg-[#D1FAE5]"
         />
         <SummaryCard
-          icon={<Briefcase size={18} className="text-[#2D5A45]" />}
-          label="Pembimbing Aktif"
-          value={stats?.jumlah_pembimbing ?? 0}
+          icon={<BookOpen size={18} className="text-[#2D5A45]" />}
+          label="Laporan Perlu Review"
+          value={stats?.laporan_perlu_review ?? 0}
           color="bg-[#D1FAE5]"
         />
         <SummaryCard
@@ -1529,10 +1485,7 @@ function AdminPendaftar({
     setBusyId(p.id);
     try {
       if (status === "disetujui") {
-        await api.put(`/pendaftar/${p.id}`, {
-          status,
-          pembimbing_id: null, // biarkan backend auto-assign pembimbing dari divisi yang sama
-        });
+        await api.put(`/pendaftar/${p.id}`, { status });
       } else {
         await api.put(`/pendaftar/${p.id}`, { status });
       }
@@ -2138,7 +2091,6 @@ function AdminVerifikasi({
 function AdminPenempatan() {
   const [divisions, setDivisions] = useState<Divisi[]>([]);
   const [peserta, setPeserta] = useState<PesertaItem[]>([]);
-  const [pembimbingList, setPembimbingList] = useState<PembimbingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -2147,14 +2099,12 @@ function AdminPenempatan() {
     setLoading(true);
     setError("");
     try {
-      const [div, ps, pb] = await Promise.all([
+      const [div, ps] = await Promise.all([
         api.get("/divisi"),
         api.get("/peserta", { params: { status: "aktif" } }),
-        api.get("/pembimbing"),
       ]);
       setDivisions(div.data.data);
       setPeserta(ps.data.data);
-      setPembimbingList(pb.data.data);
     } catch (err) {
       setError(apiErrorMessage(err, "Gagal memuat data penempatan."));
     } finally {
@@ -2173,18 +2123,6 @@ function AdminPenempatan() {
       load();
     } catch (err) {
       alert(apiErrorMessage(err, "Gagal menyimpan penempatan."));
-    } finally {
-      setSavingId(null);
-    }
-  }
-
-  async function assignPembimbing(pesertaId: number, pembimbingId: number) {
-    setSavingId(pesertaId);
-    try {
-      await api.put(`/peserta/${pesertaId}`, { pembimbing_id: pembimbingId });
-      load();
-    } catch (err) {
-      alert(apiErrorMessage(err, "Gagal menyimpan pembimbing."));
     } finally {
       setSavingId(null);
     }
@@ -2260,328 +2198,8 @@ function AdminPenempatan() {
                     </option>
                   ))}
                 </select>
-                <select
-                  value={p.pembimbing_id ?? ""}
-                  disabled={savingId === p.id}
-                  onChange={(e) =>
-                    assignPembimbing(p.id, Number(e.target.value))
-                  }
-                  className={cn(
-                    "px-3 py-1.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20",
-                    p.pembimbing_id
-                      ? "border-[#1B4332]/15 bg-white text-[#3D4442]"
-                      : "border-red-300 bg-red-50 text-red-700",
-                  )}
-                >
-                  <option value="" disabled>
-                    Belum ada pembimbing
-                  </option>
-                  {pembimbingList
-                    .filter(
-                      (pb) =>
-                        pb.status === "aktif" && pb.divisi_id === p.divisi_id,
-                    )
-                    .map((pb) => (
-                      <option key={pb.id} value={pb.id}>
-                        {pb.nama}
-                        {pb.divisi_id !== p.divisi_id ? ` (${pb.divisi})` : ""}
-                      </option>
-                    ))}
-                </select>
               </div>
             ))}
-          </div>
-        )}
-      </Card>
-    </div>
-  );
-}
-
-function AdminPembimbing() {
-  const [list, setList] = useState<PembimbingItem[]>([]);
-  const [divisi, setDivisi] = useState<Divisi[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<PembimbingItem | null>(null);
-  const [form, setForm] = useState({
-    nama: "",
-    email: "",
-    password: "",
-    nip: "",
-    divisi_id: "",
-    status: "aktif",
-  });
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState("");
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const [pb, div] = await Promise.all([
-        api.get("/pembimbing"),
-        api.get("/divisi"),
-      ]);
-      setList(pb.data.data);
-      setDivisi(div.data.data);
-    } catch (err) {
-      setError(apiErrorMessage(err, "Gagal memuat data pembimbing."));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  function openAdd() {
-    setEditing(null);
-    setForm({
-      nama: "",
-      email: "",
-      password: "",
-      nip: "",
-      divisi_id: divisi[0]?.id.toString() ?? "",
-      status: "aktif",
-    });
-    setFormError("");
-    setFormOpen(true);
-  }
-
-  function openEdit(p: PembimbingItem) {
-    setEditing(p);
-    setForm({
-      nama: p.nama,
-      email: p.email,
-      password: "",
-      nip: p.nip,
-      divisi_id: p.divisi_id.toString(),
-      status: p.status,
-    });
-    setFormError("");
-    setFormOpen(true);
-  }
-
-  async function submitForm(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setFormError("");
-    try {
-      if (editing) {
-        await api.put(`/pembimbing/${editing.id}`, {
-          nama: form.nama,
-          email: form.email,
-          nip: form.nip,
-          divisi_id: Number(form.divisi_id),
-          status: form.status,
-        });
-      } else {
-        await api.post("/pembimbing", {
-          nama: form.nama,
-          email: form.email,
-          password: form.password,
-          nip: form.nip,
-          divisi_id: Number(form.divisi_id),
-        });
-      }
-      setFormOpen(false);
-      load();
-    } catch (err) {
-      setFormError(apiErrorMessage(err, "Gagal menyimpan data pembimbing."));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleDelete(p: PembimbingItem) {
-    if (!confirm(`Hapus akun pembimbing ${p.nama}?`)) return;
-    try {
-      await api.delete(`/pembimbing/${p.id}`);
-      load();
-    } catch (err) {
-      alert(apiErrorMessage(err, "Gagal menghapus pembimbing."));
-    }
-  }
-
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-bold text-[#1B4332]">
-          Manajemen Pembimbing Lapangan
-        </h1>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors"
-        >
-          <Plus size={15} /> Tambah Pembimbing
-        </button>
-      </div>
-
-      {formOpen && (
-        <Card>
-          <h3 className="font-bold text-[#1B4332] mb-3">
-            {editing ? "Edit Pembimbing" : "Tambah Pembimbing"}
-          </h3>
-          <form
-            onSubmit={submitForm}
-            className="grid grid-cols-1 sm:grid-cols-2 gap-3"
-          >
-            <input
-              required
-              value={form.nama}
-              onChange={(e) => setForm((f) => ({ ...f, nama: e.target.value }))}
-              placeholder="Nama Lengkap"
-              className="px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
-            />
-            <input
-              required
-              type="email"
-              value={form.email}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, email: e.target.value }))
-              }
-              placeholder="Email"
-              className="px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
-            />
-            {!editing && (
-              <input
-                required
-                type="password"
-                value={form.password}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, password: e.target.value }))
-                }
-                placeholder="Kata Sandi Awal"
-                className="px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
-              />
-            )}
-            <input
-              required
-              value={form.nip}
-              onChange={(e) => setForm((f) => ({ ...f, nip: e.target.value }))}
-              placeholder="NIP"
-              className="px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
-            />
-            <select
-              required
-              value={form.divisi_id}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, divisi_id: e.target.value }))
-              }
-              className="px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none"
-            >
-              <option value="">Pilih Divisi</option>
-              {divisi.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.nama}
-                </option>
-              ))}
-            </select>
-            {editing && (
-              <select
-                value={form.status}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, status: e.target.value }))
-                }
-                className="px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none"
-              >
-                <option value="aktif">Aktif</option>
-                <option value="nonaktif">Nonaktif</option>
-              </select>
-            )}
-            {formError && (
-              <p className="sm:col-span-2 text-sm text-red-600">{formError}</p>
-            )}
-            <div className="sm:col-span-2 flex gap-2">
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
-              >
-                {saving ? "Menyimpan..." : "Simpan"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormOpen(false)}
-                className="px-4 py-2 border border-[#1B4332]/20 text-[#1B4332] text-sm font-semibold rounded-lg hover:bg-[#D1FAE5] transition-colors"
-              >
-                Batal
-              </button>
-            </div>
-          </form>
-        </Card>
-      )}
-
-      <Card>
-        {loading ? (
-          <LoadingState />
-        ) : error ? (
-          <ErrorState message={error} onRetry={load} />
-        ) : list.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-[#1B4332]/10">
-                  {[
-                    "Nama",
-                    "NIP",
-                    "Divisi",
-                    "Peserta Aktif",
-                    "Status",
-                    "Aksi",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="text-left py-2.5 px-3 text-[#6B7770] text-xs font-semibold uppercase tracking-wide"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {list.map((p) => (
-                  <tr
-                    key={p.id}
-                    className="border-b border-[#1B4332]/5 hover:bg-[#F1F3F1]/50 transition-colors"
-                  >
-                    <td className="py-3 px-3 font-semibold text-[#1B4332]">
-                      {p.nama}
-                    </td>
-                    <td className="py-3 px-3 text-[#6B7770] font-mono text-xs">
-                      {p.nip}
-                    </td>
-                    <td className="py-3 px-3 text-[#6B7770]">{p.divisi}</td>
-                    <td className="py-3 px-3 font-bold text-[#1B4332]">
-                      {p.peserta}
-                    </td>
-                    <td className="py-3 px-3">
-                      <StatusBadge status={p.status} />
-                    </td>
-                    <td className="py-3 px-3">
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => openEdit(p)}
-                          className="p-1.5 rounded-lg hover:bg-[#D1FAE5] text-[#1B4332] transition-colors"
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(p)}
-                          className="p-1.5 rounded-lg hover:bg-red-100 text-red-600 transition-colors"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         )}
       </Card>
@@ -3145,9 +2763,7 @@ function AdminSertifikat() {
                         <p className="font-semibold text-[#3D4442] text-sm">
                           {p.nama}
                         </p>
-                        <p className="text-xs text-[#6B7770]">
-                          {p.divisi} — Pembimbing: {p.pembimbing}
-                        </p>
+                        <p className="text-xs text-[#6B7770]">{p.divisi}</p>
                         {existing && (
                           <p className="text-xs text-amber-600 mt-0.5">
                             Sudah pernah terbit — nomor & file lama akan
@@ -5063,7 +4679,7 @@ function AbsensiHariIni() {
 
                   <p className="pt-2.5 border-t border-amber-200 text-xs text-amber-900">
                     Selain ketentuan di atas, jika Izin, Sakit, atau Lupa Absen{" "}
-                    <strong>wajib menghubungi Pembimbing Lapangan</strong>.
+                    <strong>wajib menghubungi Admin</strong>.
                   </p>
                 </div>
 
@@ -5439,7 +5055,6 @@ function PesertaSertifikat() {
                   "Periode",
                   `${peserta.tanggal_mulai} – ${peserta.tanggal_selesai}`,
                 ],
-                ["Pembimbing", peserta.pembimbing],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between">
                   <span className="text-[#6B7770]">{k}</span>
@@ -5540,7 +5155,6 @@ function PesertaProfil() {
     ...(peserta
       ? ([
           ["Divisi", peserta.divisi],
-          ["Pembimbing", peserta.pembimbing],
           ["Status", "Peserta Aktif"],
         ] as [string, string][])
       : []),
@@ -5671,9 +5285,9 @@ function PesertaProfil() {
   );
 }
 
-// ─── Pembimbing Pages ─────────────────────────────────────────────────────────
+// ─── Detail Peserta (Admin) ─────────────────────────────────────────────────
 
-function DetailPesertaBimbingan({
+function DetailPeserta({
   pesertaId,
   onBack,
 }: {
@@ -5718,20 +5332,6 @@ function DetailPesertaBimbingan({
   useEffect(() => {
     load();
   }, [load]);
-
-  // ── Verifikasi absensi ──
-  const [busyAbsensiId, setBusyAbsensiId] = useState<number | null>(null);
-  async function verifyAbsensi(id: number) {
-    setBusyAbsensiId(id);
-    try {
-      await api.put(`/absensi/${id}/verifikasi`);
-      load();
-    } catch (err) {
-      alert(apiErrorMessage(err, "Gagal memverifikasi absensi."));
-    } finally {
-      setBusyAbsensiId(null);
-    }
-  }
 
   // ── Review laporan ──
   const [selectedLaporan, setSelectedLaporan] = useState<number | null>(null);
@@ -5822,12 +5422,6 @@ function DetailPesertaBimbingan({
                 <p className="font-medium text-[#3D4442]">{profil.divisi}</p>
               </div>
               <div>
-                <p className="text-xs text-[#6B7770]">Pembimbing</p>
-                <p className="font-medium text-[#3D4442]">
-                  {profil.pembimbing}
-                </p>
-              </div>
-              <div>
                 <p className="text-xs text-[#6B7770]">Periode Magang</p>
                 <p className="font-medium text-[#3D4442]">
                   {profil.tanggal_mulai} – {profil.tanggal_selesai}
@@ -5912,7 +5506,6 @@ function DetailPesertaBimbingan({
                       "Keterangan",
                       "Bukti",
                       "Status",
-                      "Aksi",
                     ].map((h) => (
                       <th
                         key={h}
@@ -5955,21 +5548,7 @@ function DetailPesertaBimbingan({
                         )}
                       </td>
                       <td className="py-3 px-3">
-                        <StatusBadge
-                          status={e.diverifikasi ? "disetujui" : "menunggu"}
-                        />
-                      </td>
-                      <td className="py-3 px-3">
-                        {!e.diverifikasi && (
-                          <button
-                            disabled={busyAbsensiId === e.id}
-                            onClick={() => verifyAbsensi(e.id)}
-                            className="p-1.5 rounded-lg bg-[#D1FAE5] text-[#1B4332] hover:bg-[#A8C3AD] transition-colors disabled:opacity-50"
-                            title="Verifikasi"
-                          >
-                            <Check size={13} />
-                          </button>
-                        )}
+                        <StatusBadge status="disetujui" />
                       </td>
                     </tr>
                   ))}
@@ -6088,7 +5667,7 @@ function DetailPesertaBimbingan({
                   <div key={r.id} className="p-3 rounded-xl bg-[#F1F3F1]">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-semibold text-[#3D4442]">
-                        {r.pembimbing} — {r.tanggal}
+                        {r.diberikan_oleh} — {r.tanggal}
                       </p>
                       <span className="text-sm font-bold text-[#1B4332]">
                         Rata-rata {r.rata_rata}/5
@@ -6160,9 +5739,7 @@ function DetailPesertaBimbingan({
               className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
             >
               <Send size={14} />{" "}
-              {submittingRekomendasi
-                ? "Mengirim..."
-                : "Submit Rekomendasi ke Admin"}
+              {submittingRekomendasi ? "Mengirim..." : "Simpan Rekomendasi"}
             </button>
           </Card>
         </div>
@@ -6171,13 +5748,12 @@ function DetailPesertaBimbingan({
   );
 }
 
-function PembimbingDashboard({
+function AbsensiVerify({
   onSelectPeserta,
 }: {
-  onSelectPeserta: (id: number) => void;
+  onSelectPeserta?: (id: number) => void;
 }) {
-  const [stats, setStats] = useState<any>(null);
-  const [list, setList] = useState<PesertaItem[]>([]);
+  const [entries, setEntries] = useState<AbsensiItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -6185,14 +5761,10 @@ function PembimbingDashboard({
     setLoading(true);
     setError("");
     try {
-      const [dash, ps] = await Promise.all([
-        api.get("/dashboard"),
-        api.get("/peserta", { params: { status: "aktif" } }),
-      ]);
-      setStats(dash.data);
-      setList(ps.data.data);
+      const { data } = await api.get("/absensi");
+      setEntries(data.data);
     } catch (err) {
-      setError(apiErrorMessage(err, "Gagal memuat dashboard."));
+      setError(apiErrorMessage(err, "Gagal memuat data absensi."));
     } finally {
       setLoading(false);
     }
@@ -6201,134 +5773,6 @@ function PembimbingDashboard({
   useEffect(() => {
     load();
   }, [load]);
-
-  if (loading) return <LoadingState />;
-  if (error) return <ErrorState message={error} onRetry={load} />;
-
-  const rataKehadiran = list.length
-    ? Math.round(list.reduce((sum, p) => sum + p.persen, 0) / list.length)
-    : 0;
-
-  return (
-    <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-[#1B4332]">
-          Dashboard Pembimbing
-        </h1>
-        <p className="text-sm text-[#6B7770]">
-          Peserta bimbingan Anda saat ini
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <SummaryCard
-          icon={<Users size={18} className="text-[#1B4332]" />}
-          label="Peserta Aktif"
-          value={list.length}
-          color="bg-[#D1FAE5]"
-        />
-        <SummaryCard
-          icon={<BarChart3 size={18} className="text-[#1B4332]" />}
-          label="Rata-rata Kehadiran"
-          value={`${rataKehadiran}%`}
-          color="bg-[#D1FAE5]"
-        />
-        <SummaryCard
-          icon={<BookOpen size={18} className="text-amber-700" />}
-          label="Laporan Perlu Review"
-          value={stats?.laporan_perlu_review ?? 0}
-          color="bg-amber-100"
-        />
-      </div>
-
-      <Card>
-        <h3 className="font-bold text-[#1B4332] mb-4">
-          Daftar Peserta Bimbingan
-        </h3>
-        {list.length === 0 ? (
-          <EmptyState label="Belum ada peserta bimbingan." />
-        ) : (
-          <div className="space-y-3">
-            {list.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => onSelectPeserta(p.id)}
-                className="w-full flex items-center gap-4 p-3 rounded-xl bg-[#F1F3F1] hover:bg-[#D1FAE5] transition-colors text-left"
-              >
-                <div className="w-9 h-9 rounded-full bg-[#1B4332] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                  {p.nama.charAt(0)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-[#3D4442] text-sm">
-                    {p.nama}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="flex-1 h-1.5 rounded-full bg-[#D1FAE5]">
-                      <div
-                        className="h-1.5 rounded-full bg-[#1B4332]"
-                        style={{ width: `${p.persen}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-[#6B7770]">{p.persen}%</span>
-                  </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-xs text-[#6B7770]">
-                    Sisa {Math.max(0, p.total_hari - p.hari_berjalan)} hari
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </Card>
-    </div>
-  );
-}
-
-function AbsensiVerify({
-  canVerify = true,
-  onSelectPeserta,
-}: {
-  canVerify?: boolean;
-  onSelectPeserta?: (id: number) => void;
-}) {
-  const [entries, setEntries] = useState<AbsensiItem[]>([]);
-  const [onlyPending, setOnlyPending] = useState(true);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [busyId, setBusyId] = useState<number | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const { data } = await api.get("/absensi", {
-        params: onlyPending ? { belum_verifikasi: 1 } : {},
-      });
-      setEntries(data.data);
-    } catch (err) {
-      setError(apiErrorMessage(err, "Gagal memuat data absensi."));
-    } finally {
-      setLoading(false);
-    }
-  }, [onlyPending]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  async function verify(id: number) {
-    setBusyId(id);
-    try {
-      await api.put(`/absensi/${id}/verifikasi`);
-      load();
-    } catch (err) {
-      alert(apiErrorMessage(err, "Gagal memverifikasi absensi."));
-    } finally {
-      setBusyId(null);
-    }
-  }
 
   const columns = [
     "Peserta",
@@ -6339,31 +5783,18 @@ function AbsensiVerify({
     "Keterangan",
     "Bukti",
     "Status",
-    ...(canVerify ? ["Aksi"] : []),
   ];
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-bold text-[#1B4332]">
-        {canVerify ? "Verifikasi Absensi" : "Riwayat Absensi"}
-      </h1>
-      <div className="flex gap-3 flex-wrap">
-        <select
-          value={onlyPending ? "menunggu" : "semua"}
-          onChange={(e) => setOnlyPending(e.target.value === "menunggu")}
-          className="px-3 py-2 rounded-lg border border-[#1B4332]/15 bg-white text-sm text-[#3D4442] focus:outline-none"
-        >
-          <option value="menunggu">Menunggu Verifikasi</option>
-          <option value="semua">Semua Absensi</option>
-        </select>
-      </div>
+      <h1 className="text-xl font-bold text-[#1B4332]">Riwayat Absensi</h1>
       <Card>
         {loading ? (
           <LoadingState />
         ) : error ? (
           <ErrorState message={error} onRetry={load} />
         ) : entries.length === 0 ? (
-          <EmptyState label="Tidak ada absensi yang perlu diverifikasi." />
+          <EmptyState label="Belum ada data absensi." />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -6434,26 +5865,8 @@ function AbsensiVerify({
                       )}
                     </td>
                     <td className="py-3 px-3">
-                      <StatusBadge
-                        status={e.diverifikasi ? "disetujui" : "menunggu"}
-                      />
+                      <StatusBadge status="disetujui" />
                     </td>
-                    {canVerify && (
-                      <td className="py-3 px-3">
-                        {!e.diverifikasi && (
-                          <div className="flex gap-1">
-                            <button
-                              disabled={busyId === e.id}
-                              onClick={() => verify(e.id)}
-                              className="p-1.5 rounded-lg bg-[#D1FAE5] text-[#1B4332] hover:bg-[#A8C3AD] transition-colors disabled:opacity-50"
-                              title="Verifikasi"
-                            >
-                              <Check size={13} />
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    )}
                   </tr>
                 ))}
               </tbody>
@@ -6531,7 +5944,7 @@ function ReviewLaporan({
           ) : error ? (
             <ErrorState message={error} onRetry={load} />
           ) : list.length === 0 ? (
-            <EmptyState label="Belum ada laporan dari peserta bimbingan." />
+            <EmptyState label="Belum ada laporan dari peserta." />
           ) : (
             <div className="space-y-2">
               {list.map((l) => (
@@ -6652,7 +6065,7 @@ function Rekomendasi({
       });
       setList(data.data);
     } catch (err) {
-      setError(apiErrorMessage(err, "Gagal memuat data peserta bimbingan."));
+      setError(apiErrorMessage(err, "Gagal memuat data peserta."));
     } finally {
       setLoading(false);
     }
@@ -6701,7 +6114,7 @@ function Rekomendasi({
       </h1>
 
       {list.length === 0 ? (
-        <EmptyState label="Tidak ada peserta bimbingan yang aktif." />
+        <EmptyState label="Tidak ada peserta magang yang aktif." />
       ) : (
         <div className="space-y-4">
           {list.map((p) => {
@@ -6765,9 +6178,7 @@ function Rekomendasi({
                   className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
                 >
                   <Send size={14} />{" "}
-                  {submittingId === p.id
-                    ? "Mengirim..."
-                    : "Submit Rekomendasi ke Admin"}
+                  {submittingId === p.id ? "Mengirim..." : "Simpan Rekomendasi"}
                 </button>
               </Card>
             );
@@ -6779,134 +6190,6 @@ function Rekomendasi({
 }
 
 // ─── App Root ─────────────────────────────────────────────────────────────────
-
-function PembimbingProfil() {
-  const [profil, setProfil] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [editing, setEditing] = useState(false);
-  const [nama, setNama] = useState("");
-  const [password, setPassword] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState("");
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const { data } = await api.get("/profil");
-      setProfil(data);
-      setNama(data.nama ?? "");
-    } catch (err) {
-      setError(apiErrorMessage(err, "Gagal memuat profil."));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  async function saveProfil() {
-    setSaving(true);
-    setSaveError("");
-    try {
-      const payload: Record<string, string> = { nama };
-      if (password) payload.password = password;
-      await api.put("/profil", payload);
-      setEditing(false);
-      setPassword("");
-      load();
-    } catch (err) {
-      setSaveError(apiErrorMessage(err, "Gagal menyimpan profil."));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (loading) return <LoadingState />;
-  if (error) return <ErrorState message={error} onRetry={load} />;
-  if (!profil) return null;
-
-  const fields: [string, string][] = [
-    ["Nama", profil.nama],
-    ["Email", profil.email],
-    ["NIP", profil.pembimbing?.nip ?? "-"],
-    ["Divisi", profil.pembimbing?.divisi?.nama ?? "-"],
-    ["Status", profil.pembimbing?.status === "aktif" ? "Aktif" : "Nonaktif"],
-  ];
-
-  return (
-    <div className="space-y-5 max-w-xl mx-auto">
-      <h1 className="text-xl font-bold text-[#1B4332]">Profil Saya</h1>
-      <Card>
-        <div className="flex items-center gap-4 mb-5">
-          <div className="w-16 h-16 rounded-2xl bg-[#1B4332] flex items-center justify-center text-white text-2xl font-bold">
-            {profil.nama.charAt(0)}
-          </div>
-          <div>
-            <p className="font-bold text-[#1B4332] text-lg">{profil.nama}</p>
-            <p className="text-sm text-[#6B7770]">{profil.email}</p>
-          </div>
-          <button
-            onClick={() => setEditing((e) => !e)}
-            className="ml-auto flex items-center gap-2 px-3 py-1.5 border border-[#1B4332]/20 text-[#1B4332] text-sm font-semibold rounded-lg hover:bg-[#D1FAE5] transition-colors"
-          >
-            <Edit2 size={13} /> {editing ? "Batal" : "Edit"}
-          </button>
-        </div>
-
-        {editing ? (
-          <div className="space-y-3">
-            <div>
-              <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
-                Nama
-              </label>
-              <input
-                value={nama}
-                onChange={(e) => setNama(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-[#3D4442] block mb-1.5">
-                Password Baru (kosongkan jika tidak diubah)
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
-              />
-            </div>
-            {saveError && <p className="text-sm text-red-600">{saveError}</p>}
-            <button
-              disabled={saving}
-              onClick={saveProfil}
-              className="px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
-            >
-              {saving ? "Menyimpan..." : "Simpan Perubahan"}
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {fields.map(([k, v]) => (
-              <div key={k} className="p-3 rounded-xl bg-[#F1F3F1]">
-                <p className="text-[10px] font-semibold text-[#6B7770] uppercase tracking-wide">
-                  {k}
-                </p>
-                <p className="text-sm font-semibold text-[#3D4442] mt-0.5">
-                  {v}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-    </div>
-  );
-}
 
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(false);
@@ -7001,36 +6284,11 @@ export default function App() {
           );
         case "penempatan":
           return <AdminPenempatan />;
-        case "pembimbing-akun":
-          return <AdminPembimbing />;
         case "divisi":
           return <AdminDivisi />;
         case "monitoring":
           return <AdminMonitoring />;
         case "absensi-riwayat":
-          return <AbsensiVerify canVerify={false} />;
-        case "sertifikat":
-          return <AdminSertifikat />;
-        case "laporan":
-          return <AdminLaporan />;
-        case "profil":
-          return <AdminProfil />;
-      }
-    }
-
-    // Pembimbing pages
-    if (role === "pembimbing") {
-      switch (page as PembimbingPage) {
-        case "dashboard":
-          return (
-            <PembimbingDashboard
-              onSelectPeserta={(id) => {
-                setSelectedPesertaId(id);
-                setPage("peserta-detail");
-              }}
-            />
-          );
-        case "absensi-verify":
           return (
             <AbsensiVerify
               onSelectPeserta={(id) => {
@@ -7059,20 +6317,19 @@ export default function App() {
           );
         case "peserta-detail":
           return selectedPesertaId ? (
-            <DetailPesertaBimbingan
+            <DetailPeserta
               pesertaId={selectedPesertaId}
               onBack={() => setPage("dashboard")}
             />
           ) : (
-            <PembimbingDashboard
-              onSelectPeserta={(id) => {
-                setSelectedPesertaId(id);
-                setPage("peserta-detail");
-              }}
-            />
+            <AdminDashboard />
           );
+        case "sertifikat":
+          return <AdminSertifikat />;
+        case "laporan":
+          return <AdminLaporan />;
         case "profil":
-          return <PembimbingProfil />;
+          return <AdminProfil />;
       }
     }
 

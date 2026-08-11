@@ -19,7 +19,6 @@ class DashboardController extends Controller
 
         return match ($user->role) {
             'admin' => $this->admin(),
-            'pembimbing' => $this->pembimbing($user),
             'peserta' => $this->peserta($user),
             default => $this->calon($user),
         };
@@ -35,27 +34,14 @@ class DashboardController extends Controller
             'jumlah_pendaftar' => Pendaftaran::count(),
             'jumlah_peserta' => PesertaMagang::where('status', 'aktif')->count(),
             'jumlah_laporan' => LaporanHarian::count(),
-            'jumlah_pembimbing' => \App\Models\Pembimbing::where('status', 'aktif')->count(),
             'jumlah_divisi' => \App\Models\Divisi::count(),
             'menunggu_verifikasi' => Pendaftaran::where('status', 'menunggu')->count(),
+            'laporan_perlu_review' => LaporanHarian::where('status', 'belum-review')->count(),
             'persentase_kehadiran' => $this->persentaseKehadiranKeseluruhan(),
             'trend_pendaftar' => $trend,
         ]);
     }
 
-    protected function pembimbing($user)
-    {
-        $pembimbing = $user->pembimbing;
-        $pesertaIds = PesertaMagang::where('pembimbing_id', $pembimbing?->id)->pluck('id');
-
-        return response()->json([
-            'jumlah_peserta_bimbingan' => $pesertaIds->count(),
-            'absensi_perlu_verifikasi' => Absensi::whereIn('peserta_magang_id', $pesertaIds)
-                ->where('diverifikasi', false)->count(),
-            'laporan_perlu_review' => LaporanHarian::whereIn('peserta_magang_id', $pesertaIds)
-                ->where('status', 'belum-review')->count(),
-        ]);
-    }
 
     protected function calon($user)
     {
@@ -77,12 +63,12 @@ class DashboardController extends Controller
         $mahasiswa = $user->mahasiswa;
         $peserta = $mahasiswa?->pesertaMagang;
 
-        if (! $peserta) {
+        if (!$peserta) {
             return $this->calon($user);
         }
 
         return response()->json([
-            'periode' => optional($peserta->tanggal_mulai)->format('d M Y').' - '.optional($peserta->tanggal_selesai)->format('d M Y'),
+            'periode' => optional($peserta->tanggal_mulai)->format('d M Y') . ' - ' . optional($peserta->tanggal_selesai)->format('d M Y'),
             'divisi' => $peserta->divisi->nama ?? '-',
             'hari_berjalan' => now()->diffInWeekdays($peserta->tanggal_mulai),
             'total_hari' => $peserta->tanggal_mulai->diffInWeekdays($peserta->tanggal_selesai),

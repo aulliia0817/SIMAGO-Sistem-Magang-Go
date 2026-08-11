@@ -11,11 +11,6 @@ class Divisi extends Model
 
     protected $fillable = ['nama', 'kuota'];
 
-    public function pembimbings()
-    {
-        return $this->hasMany(Pembimbing::class);
-    }
-
     public function pendaftarans()
     {
         return $this->hasMany(Pendaftaran::class);

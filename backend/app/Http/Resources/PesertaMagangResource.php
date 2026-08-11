@@ -22,8 +22,6 @@ class PesertaMagangResource extends JsonResource
             'institusi' => $this->mahasiswa->institusi ?? '-',
             'divisi' => $this->divisi->nama ?? '-',
             'divisi_id' => $this->divisi_id,
-            'pembimbing' => $this->pembimbing->user->name ?? '-',
-            'pembimbing_id' => $this->pembimbing_id,
             'tanggal_mulai' => optional($this->tanggal_mulai)->format('d M Y'),
             'tanggal_selesai' => optional($this->tanggal_selesai)->format('d M Y'),
             'hari_berjalan' => $hariBerjalan,

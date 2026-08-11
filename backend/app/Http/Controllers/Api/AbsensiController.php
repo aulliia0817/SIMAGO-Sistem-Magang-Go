@@ -10,26 +10,10 @@ use Illuminate\Http\Request;
 
 class AbsensiController extends Controller
 {
-    /**
-     * Admin: monitoring seluruh kehadiran.
-     * Pembimbing: kehadiran peserta bimbingannya (utk verifikasi).
-     */
+    /** Admin: monitoring seluruh kehadiran peserta. */
     public function index(Request $request)
     {
-        $user = $request->user();
         $query = Absensi::with('pesertaMagang.mahasiswa.user', 'pesertaMagang.divisi');
-
-        if ($user->role === 'pembimbing') {
-            $query->whereHas('pesertaMagang', fn($q) => $q->where('pembimbing_id', $user->pembimbing?->id));
-        }
-
-        if ($belumVerifikasi = $request->boolean('belum_verifikasi')) {
-            $query->where('diverifikasi', false);
-        }
-
-        if ($pesertaMagangId = $request->query('peserta_magang_id')) {
-            $query->where('peserta_magang_id', $pesertaMagangId);
-        }
 
         return AbsensiResource::collection($query->latest('tanggal')->paginate($request->integer('per_page', 20)));
     }
@@ -43,7 +27,7 @@ class AbsensiController extends Controller
         return AbsensiResource::collection($peserta->absensis()->latest('tanggal')->get());
     }
 
-    /** Peserta: isi absensi hari ini (datang / pulang / izin / sakit / lupa absen). */
+    /** Peserta: isi absensi hari ini (datang / pulang / izin / sakit / lupa absen). Langsung terverifikasi. */
     public function store(StoreAbsensiRequest $request)
     {
         $peserta = $request->user()->mahasiswa?->pesertaMagang;
@@ -56,13 +40,12 @@ class AbsensiController extends Controller
             'sift' => $sift,
             'keterangan' => $data['keterangan'] ?? null,
             'di_luar_jam' => $request->boolean('di_luar_jam'),
-            'diverifikasi' => false,
+            'diverifikasi' => true,
         ];
 
         if (in_array($sift, ['izin', 'sakit'], true)) {
             $payload['status'] = $sift;
         } elseif ($sift === 'lupa_absen') {
-            // Diajukan sebagai pengecualian; tetap menunggu keputusan pembimbing saat verifikasi.
             $payload['status'] = 'alpha';
         } else {
             $payload['status'] = 'hadir';
@@ -83,41 +66,5 @@ class AbsensiController extends Controller
         );
 
         return new AbsensiResource($absensi);
-    }
-
-    /** Pembimbing: verifikasi absensi peserta bimbingan. */
-    public function verify(Request $request, Absensi $absensi)
-    {
-        $user = $request->user();
-        abort_unless(
-            $user->role === 'admin' || $absensi->pesertaMagang->pembimbing_id === $user->pembimbing?->id,
-            403,
-            'Anda tidak memiliki akses untuk memverifikasi absensi ini.'
-        );
-
-        $absensi->update(['diverifikasi' => true]);
-
-        return new AbsensiResource($absensi);
-    }
-
-    /**
-     * Buka/unduh bukti foto absensi (izin/sakit/lupa absen) langsung lewat backend
-     * (tidak bergantung pada symlink storage:link). Diizinkan untuk admin/pembimbing
-     * (semua bukti) atau peserta pemilik absensi itu sendiri.
-     */
-    public function file(Request $request, Absensi $absensi)
-    {
-        $user = $request->user();
-        $isOwner = ($absensi->pesertaMagang->mahasiswa->user_id ?? null) === $user->id;
-
-        abort_unless(
-            in_array($user->role, ['admin', 'pembimbing']) || $isOwner,
-            403,
-            'Anda tidak memiliki akses ke bukti absensi ini.'
-        );
-        abort_unless($absensi->bukti_path, 404, 'Bukti absensi ini belum diunggah.');
-        abort_unless(\Storage::disk('public')->exists($absensi->bukti_path), 404, 'File tidak ditemukan di server.');
-
-        return \Storage::disk('public')->response($absensi->bukti_path);
     }
 }

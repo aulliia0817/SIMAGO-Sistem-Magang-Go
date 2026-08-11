@@ -213,7 +213,6 @@ class PendaftaranController extends Controller
                     'pendaftaran_id' => $pendaftaran->id,
                     'mahasiswa_id' => $pendaftaran->mahasiswa_id,
                     'divisi_id' => $pendaftaran->divisi_id,
-                    'pembimbing_id' => null,
                     'tanggal_mulai' => $pendaftaran->tanggal_mulai ?? now()->toDateString(),
                     'tanggal_selesai' => $pendaftaran->tanggal_selesai ?? now()->addMonths(3)->toDateString(),
                     'status' => 'aktif',

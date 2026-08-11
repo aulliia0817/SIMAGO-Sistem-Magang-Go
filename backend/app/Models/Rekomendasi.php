@@ -8,7 +8,6 @@ class Rekomendasi extends Model
 {
     protected $fillable = [
         'peserta_magang_id',
-        'pembimbing_id',
         'kedisiplinan',
         'teknis',
         'sikap',
@@ -21,8 +20,5 @@ class Rekomendasi extends Model
         return $this->belongsTo(PesertaMagang::class);
     }
 
-    public function pembimbing()
-    {
-        return $this->belongsTo(Pembimbing::class);
-    }
+
 }

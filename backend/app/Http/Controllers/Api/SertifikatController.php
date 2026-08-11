@@ -147,7 +147,7 @@ class SertifikatController extends Controller
         $isOwner = ($sertifikat->pesertaMagang->mahasiswa->user_id ?? null) === $user->id;
 
         abort_unless(
-            in_array($user->role, ['admin', 'pembimbing']) || $isOwner,
+            $user->role === 'admin' || $isOwner,
             403,
             'Anda tidak memiliki akses ke sertifikat ini.'
         );

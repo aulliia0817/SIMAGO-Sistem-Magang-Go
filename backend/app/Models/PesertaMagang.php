@@ -13,7 +13,6 @@ class PesertaMagang extends Model
         'pendaftaran_id',
         'mahasiswa_id',
         'divisi_id',
-        'pembimbing_id',
         'tanggal_mulai',
         'tanggal_selesai',
         'status',
@@ -42,10 +41,6 @@ class PesertaMagang extends Model
         return $this->belongsTo(Divisi::class);
     }
 
-    public function pembimbing()
-    {
-        return $this->belongsTo(Pembimbing::class);
-    }
 
     public function absensis()
     {
