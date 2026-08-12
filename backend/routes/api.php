@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\LaporanHarianController;
 use App\Http\Controllers\Api\NotifikasiController;
 use App\Http\Controllers\Api\PendaftaranController;
 use App\Http\Controllers\Api\PengaturanController;
+use App\Http\Controllers\Api\PengumumanController;
 use App\Http\Controllers\Api\PesertaMagangController;
 use App\Http\Controllers\Api\ProfilController;
 use App\Http\Controllers\Api\SertifikatController;
@@ -61,6 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/laporan', [LaporanHarianController::class, 'store']);
         Route::get('/sertifikat/saya', [SertifikatController::class, 'mine']);
         Route::put('/laporan/{laporanHarian}/revisi', [LaporanHarianController::class, 'revise']);
+        Route::get('/pengumuman/aktif', [PengumumanController::class, 'aktif']);
     });
 
     // ── Admin ──────────────────────────────────────────────────────────────
@@ -78,6 +80,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/sertifikat/{sertifikat}', [SertifikatController::class, 'update']);
 
         Route::put('/pengaturan/periode', [PengaturanController::class, 'updatePeriode']);
+
+        Route::get('/pengumuman', [PengumumanController::class, 'index']);
+        Route::post('/pengumuman', [PengumumanController::class, 'store']);
+        Route::put('/pengumuman/{pengumuman}/arsipkan', [PengumumanController::class, 'archive']);
 
     });
 
