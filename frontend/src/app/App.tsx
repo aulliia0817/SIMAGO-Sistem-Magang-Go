@@ -43,6 +43,8 @@ import {
   Briefcase,
   Loader2,
   Inbox,
+  Megaphone,
+  Archive,
 } from "lucide-react";
 import {
   BarChart,
@@ -104,6 +106,15 @@ type NotifikasiItem = {
   tanggal: string;
 };
 type Divisi = { id: number; nama: string; kuota: number; sisa_kuota: number };
+type PengumumanItem = {
+  id: number;
+  judul: string;
+  isi: string;
+  status: string;
+  dibuat_oleh: string | null;
+  dibuat_pada: string;
+  diarsipkan_pada: string | null;
+};
 type PendaftarItem = {
   id: number;
   nama: string;
@@ -273,6 +284,7 @@ function StatusBadge({
     },
     ditolak: { label: "Ditolak", cls: "bg-red-100 text-red-700" },
     kedaluwarsa: { label: "Kedaluwarsa", cls: "bg-gray-200 text-gray-600" },
+    diarsipkan: { label: "Diarsipkan", cls: "bg-gray-200 text-gray-600" },
     nonaktif: { label: "Nonaktif", cls: "bg-red-100 text-red-700" },
     "perlu-revisi": { label: "Perlu Revisi", cls: "bg-red-100 text-red-700" },
     "belum-upload": { label: "Belum Upload", cls: "bg-gray-100 text-gray-500" },
@@ -1221,9 +1233,38 @@ function LoginPage({
 
 // ─── Admin Pages ──────────────────────────────────────────────────────────────
 
+// ─── Modal overlay generik (dipakai untuk panel Pengumuman di Dashboard Admin) ─
+function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+      <div className="bg-white rounded-2xl shadow-lg border border-[#1B4332]/10 w-full max-w-3xl max-h-[85vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1B4332]/10 sticky top-0 bg-white rounded-t-2xl">
+          <h2 className="font-bold text-[#1B4332]">{title}</h2>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-[#6B7770] hover:bg-[#F1F3F1] hover:text-[#1B4332] transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 function AdminDashboard() {
   const [periodOpen, setPeriodOpen] = useState(true);
   const [togglingPeriod, setTogglingPeriod] = useState(false);
+  const [pengumumanOpen, setPengumumanOpen] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [divisi, setDivisi] = useState<Divisi[]>([]);
   const [recent, setRecent] = useState<PendaftarItem[]>([]);
@@ -1269,31 +1310,46 @@ function AdminDashboard() {
         <div>
           <h1 className="text-xl font-bold text-[#1B4332]">Dashboard Admin</h1>
         </div>
-        <button
-          disabled={togglingPeriod}
-          onClick={async () => {
-            const next = !periodOpen;
-            setTogglingPeriod(true);
-            try {
-              await api.put("/pengaturan/periode", { dibuka: next });
-              setPeriodOpen(next);
-            } catch (err) {
-              alert(apiErrorMessage(err, "Gagal mengubah status periode."));
-            } finally {
-              setTogglingPeriod(false);
-            }
-          }}
-          className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60",
-            periodOpen
-              ? "bg-[#1B4332] text-white hover:bg-[#2D5A45]"
-              : "bg-red-600 text-white hover:bg-red-700",
-          )}
-        >
-          {periodOpen ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-          Periode {periodOpen ? "Buka" : "Tutup"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPengumumanOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border border-[#1B4332]/20 text-[#1B4332] hover:bg-[#D1FAE5] transition-colors"
+          >
+            <Megaphone size={16} />
+            Pengumuman
+          </button>
+          <button
+            disabled={togglingPeriod}
+            onClick={async () => {
+              const next = !periodOpen;
+              setTogglingPeriod(true);
+              try {
+                await api.put("/pengaturan/periode", { dibuka: next });
+                setPeriodOpen(next);
+              } catch (err) {
+                alert(apiErrorMessage(err, "Gagal mengubah status periode."));
+              } finally {
+                setTogglingPeriod(false);
+              }
+            }}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60",
+              periodOpen
+                ? "bg-[#1B4332] text-white hover:bg-[#2D5A45]"
+                : "bg-red-600 text-white hover:bg-red-700",
+            )}
+          >
+            {periodOpen ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+            Periode {periodOpen ? "Buka" : "Tutup"}
+          </button>
+        </div>
       </div>
+
+      {pengumumanOpen && (
+        <Modal title="Pengumuman" onClose={() => setPengumumanOpen(false)}>
+          <AdminPengumuman />
+        </Modal>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <SummaryCard
@@ -3055,6 +3111,283 @@ function AdminLaporan() {
 
 // ─── Calon/Peserta Pages ──────────────────────────────────────────────────────
 
+// ─── Admin: Pengumuman ──────────────────────────────────────────────────────
+// Admin membuat -> otomatis Aktif -> langsung tampil di Dashboard Peserta
+// -> tetap tampil selama masih Aktif -> Admin mengarsipkan -> hilang dari
+// Dashboard Peserta -> tetap tersimpan sebagai Arsip/Riwayat Admin.
+function AdminPengumuman() {
+  const [list, setList] = useState<PengumumanItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [tab, setTab] = useState<"aktif" | "arsip">("aktif");
+  const [formOpen, setFormOpen] = useState(false);
+  const [form, setForm] = useState({ judul: "", isi: "" });
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [archivingId, setArchivingId] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await api.get("/pengumuman", { params: { status: "semua" } });
+      setList(res.data.data);
+    } catch (err) {
+      setError(apiErrorMessage(err, "Gagal memuat data pengumuman."));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  function openAdd() {
+    setForm({ judul: "", isi: "" });
+    setFormError("");
+    setFormOpen(true);
+  }
+
+  async function submitForm(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setFormError("");
+    try {
+      await api.post("/pengumuman", form);
+      setFormOpen(false);
+      setTab("aktif");
+      load();
+    } catch (err) {
+      setFormError(apiErrorMessage(err, "Gagal menyimpan pengumuman."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleArchive(p: PengumumanItem) {
+    if (
+      !confirm(
+        `Arsipkan pengumuman "${p.judul}"? Pengumuman ini tidak akan lagi tampil di Dashboard Peserta, tetapi datanya tetap tersimpan sebagai riwayat.`,
+      )
+    )
+      return;
+    setArchivingId(p.id);
+    try {
+      await api.put(`/pengumuman/${p.id}/arsipkan`);
+      load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Gagal mengarsipkan pengumuman."));
+    } finally {
+      setArchivingId(null);
+    }
+  }
+
+  const aktifList = list.filter((p) => p.status === "aktif");
+  const arsipList = list.filter((p) => p.status === "diarsipkan");
+  const shown = tab === "aktif" ? aktifList : arsipList;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-xl font-bold text-[#1B4332]">Pengumuman</h1>
+        <button
+          onClick={openAdd}
+          className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors"
+        >
+          <Plus size={15} /> Tambah Pengumuman
+        </button>
+      </div>
+
+      {formOpen && (
+        <Card>
+          <h3 className="font-bold text-[#1B4332] mb-3">Tambah Pengumuman</h3>
+          <form onSubmit={submitForm} className="space-y-3">
+            <input
+              required
+              maxLength={200}
+              value={form.judul}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, judul: e.target.value }))
+              }
+              placeholder="Judul Pengumuman"
+              className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+            />
+            <textarea
+              required
+              rows={3}
+              maxLength={2000}
+              value={form.isi}
+              onChange={(e) => setForm((f) => ({ ...f, isi: e.target.value }))}
+              placeholder="Isi Pengumuman"
+              className="w-full px-3.5 py-2.5 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
+            />
+            {formError && <p className="text-sm text-red-600">{formError}</p>}
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-50"
+              >
+                {saving ? "Mengirim..." : "Kirim Pengumuman"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormOpen(false)}
+                className="px-4 py-2 border border-[#1B4332]/20 text-[#1B4332] text-sm font-semibold rounded-lg hover:bg-[#D1FAE5] transition-colors"
+              >
+                Batal
+              </button>
+            </div>
+          </form>
+        </Card>
+      )}
+
+      <div className="flex gap-1 bg-[#F1F3F1] p-1 rounded-lg w-fit">
+        {(
+          [
+            { key: "aktif", label: `Aktif (${aktifList.length})` },
+            { key: "arsip", label: `Arsip (${arsipList.length})` },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={cn(
+              "px-4 py-1.5 rounded-md text-sm font-semibold transition-colors",
+              tab === t.key
+                ? "bg-white text-[#1B4332] shadow-sm"
+                : "text-[#6B7770] hover:text-[#3D4442]",
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <Card>
+        {loading ? (
+          <LoadingState />
+        ) : error ? (
+          <ErrorState message={error} onRetry={load} />
+        ) : shown.length === 0 ? (
+          <EmptyState
+            label={
+              tab === "aktif"
+                ? "Belum ada pengumuman aktif."
+                : "Belum ada pengumuman yang diarsipkan."
+            }
+          />
+        ) : (
+          <div className="space-y-3">
+            {shown.map((p) => (
+              <div
+                key={p.id}
+                className="p-4 rounded-xl border border-[#1B4332]/10 bg-[#F1F3F1]/40"
+              >
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <p className="font-bold text-[#1B4332]">{p.judul}</p>
+                    <p className="text-sm text-[#3D4442] mt-1 whitespace-pre-line">
+                      {p.isi}
+                    </p>
+                  </div>
+                  <StatusBadge status={p.status} />
+                </div>
+                <div className="mt-3 pt-3 border-t border-[#1B4332]/10 flex items-center justify-between flex-wrap gap-2 text-xs text-[#6B7770]">
+                  <span>
+                    Dibuat: {p.dibuat_pada}
+                    {p.dibuat_oleh ? ` oleh ${p.dibuat_oleh}` : ""}
+                    {p.diarsipkan_pada && (
+                      <> · Diarsipkan: {p.diarsipkan_pada}</>
+                    )}
+                  </span>
+                  {p.status === "aktif" && (
+                    <button
+                      onClick={() => handleArchive(p)}
+                      disabled={archivingId === p.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors font-semibold disabled:opacity-50"
+                    >
+                      <Archive size={13} />{" "}
+                      {archivingId === p.id ? "Mengarsipkan..." : "Arsipkan"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function PengumumanTicker() {
+  const [items, setItems] = useState<PengumumanItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    api
+      .get("/pengumuman/aktif")
+      .then((res) => {
+        if (mounted) setItems(res.data.data);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+  if (loading || items.length === 0) return null;
+
+  return (
+    <div className="flex items-stretch rounded-xl overflow-hidden border border-[#1B4332]/15 bg-white">
+      <div className="flex items-center gap-2 px-4 py-3 bg-[#1B4332] text-white shrink-0">
+        <Megaphone size={16} />
+        <span className="text-xs font-bold uppercase tracking-wide whitespace-nowrap">
+          Pengumuman
+        </span>
+      </div>
+      <div className="flex-1 overflow-hidden py-3">
+        <div className="flex w-max animate-marquee">
+          {[0, 1].map((i) => (
+            <div
+              key={i}
+              aria-hidden={i === 1 ? true : undefined}
+              className="flex items-center shrink-0"
+            >
+              {items.map((p, index) => (
+                <div
+                  key={`${i}-${p.id}`}
+                  className="flex items-center shrink-0"
+                >
+                  <div className="flex flex-col justify-center px-6">
+                    <p className="text-sm font-medium text-[#3D4442] whitespace-nowrap">
+                      {p.judul}: {p.isi}
+                    </p>
+                    <p className="text-xs text-[#6B7770] mt-1 whitespace-nowrap">
+                      {p.dibuat_pada}
+                    </p>
+                  </div>
+                  {index < items.length - 1 && (
+                    <span className="text-[#6B7770] px-2 shrink-0">
+                    </span>
+                  )}
+                </div>
+              ))}
+              <span className="text-[#6B7770] px-2 shrink-0">
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CalonDashboard({ userStatus }: { userStatus: "calon" | "peserta" }) {
   const isPeserta = userStatus === "peserta";
   const [d, setD] = useState<any>(null);
@@ -3094,6 +3427,8 @@ function CalonDashboard({ userStatus }: { userStatus: "calon" | "peserta" }) {
 
   return (
     <div className="space-y-5">
+      {isPeserta && <PengumumanTicker />}
+
       <div
         className={cn(
           "rounded-2xl p-5 flex items-start gap-4",
