@@ -119,9 +119,6 @@ type PendaftarItem = {
   batas_pengumuman: string;
   sisa_hari_pengumuman: number | null;
   catatan_admin: string | null;
-  nomor_surat: string | null;
-  surat_dikirim_at: string | null;
-  surat_url: string | null;
   dokumen_dikirim: boolean;
   dokumen?: DokumenItem[];
 };
@@ -1719,9 +1716,8 @@ function AdminVerifikasi({
     }
   }
 
-  // ── Keputusan seleksi & surat balasan ─────────────────────────────────────
+  // ── Keputusan seleksi ──────────────────────────────────────────────────
   const [decision, setDecision] = useState<"" | "disetujui" | "ditolak">("");
-  const [nomorSurat, setNomorSurat] = useState("");
   const [editingKeputusan, setEditingKeputusan] = useState(false);
   const [sendingKeputusan, setSendingKeputusan] = useState(false);
 
@@ -1729,21 +1725,17 @@ function AdminVerifikasi({
     if (!p) return;
     const sudahDiputuskan = p.status === "disetujui" || p.status === "ditolak";
     setDecision(sudahDiputuskan ? (p.status as "disetujui" | "ditolak") : "");
-    setNomorSurat(p.nomor_surat ?? "");
     setEditingKeputusan(!sudahDiputuskan);
   }, [p]);
 
   async function kirimKeputusan() {
-    if (!pendaftaranId || !decision || !nomorSurat.trim()) return;
+    if (!pendaftaranId || !decision) return;
     setSendingKeputusan(true);
     try {
-      await api.put(`/pendaftar/${pendaftaranId}`, {
-        status: decision,
-        nomor_surat: nomorSurat.trim(),
-      });
+      await api.put(`/pendaftar/${pendaftaranId}`, { status: decision });
       load();
     } catch (err) {
-      alert(apiErrorMessage(err, "Gagal mengirim keputusan & surat."));
+      alert(apiErrorMessage(err, "Gagal mengirim keputusan."));
     } finally {
       setSendingKeputusan(false);
     }
@@ -1992,40 +1984,22 @@ function AdminVerifikasi({
         </Card>
 
         <Card className="lg:col-span-3">
-          <h3 className="font-bold text-[#1B4332] mb-1">
-            Keputusan Seleksi & Surat Balasan
-          </h3>
+          <h3 className="font-bold text-[#1B4332] mb-1">Keputusan Seleksi</h3>
           <p className="text-xs text-[#6B7770] mb-4">
-            Setelah seluruh dokumen terverifikasi, tentukan hasil seleksi dan
-            masukkan nomor surat — surat balasan (PDF) dibuat otomatis dan
-            langsung bisa diunduh calon dari halaman Tracking Status miliknya.
+            Setelah seluruh dokumen terverifikasi, tentukan hasil seleksi. Calon
+            akan menerima pemberitahuan otomatis di halaman Tracking Status
+            miliknya.
           </p>
 
           {sudahDiputuskan && !editingKeputusan && (
             <div className="flex items-center gap-3 flex-wrap p-3 rounded-xl bg-[#F1F3F1] border border-[#1B4332]/8">
               <StatusBadge status={p.status} />
-              <span className="text-sm text-[#3D4442]">
-                Nomor Surat: <strong>{p.nomor_surat ?? "-"}</strong>
-              </span>
-              {p.surat_dikirim_at && (
-                <span className="text-xs text-[#6B7770]">
-                  Diterbitkan {p.surat_dikirim_at}
-                </span>
-              )}
               <div className="flex-1" />
-              {p.surat_url && (
-                <button
-                  onClick={() => openAuthenticatedFile(p.surat_url!)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1B4332] text-white text-xs font-semibold hover:bg-[#2D5A45] transition-colors"
-                >
-                  <Eye size={13} /> Lihat Surat
-                </button>
-              )}
               <button
                 onClick={() => setEditingKeputusan(true)}
                 className="text-xs font-semibold text-[#6B7770] hover:text-[#1B4332] underline"
               >
-                Terbitkan ulang / ubah nomor surat
+                Ubah keputusan
               </button>
             </div>
           )}
@@ -2038,38 +2012,27 @@ function AdminVerifikasi({
                   mengambil keputusan seleksi.
                 </p>
               )}
-              <div className="grid sm:grid-cols-2 gap-3">
-                <select
-                  value={decision}
-                  onChange={(e) =>
-                    setDecision(e.target.value as "" | "disetujui" | "ditolak")
-                  }
-                  className="px-3 py-2 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none"
-                >
-                  <option value="">Pilih keputusan...</option>
-                  <option value="disetujui">Diterima</option>
-                  <option value="ditolak">Ditolak</option>
-                </select>
-                <input
-                  value={nomorSurat}
-                  onChange={(e) => setNomorSurat(e.target.value)}
-                  placeholder="Nomor surat, contoh: 421/123/2026"
-                  className="px-3 py-2 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none focus:ring-2 focus:ring-[#1B4332]/20"
-                />
-              </div>
+              <select
+                value={decision}
+                onChange={(e) =>
+                  setDecision(e.target.value as "" | "disetujui" | "ditolak")
+                }
+                className="w-full sm:w-64 px-3 py-2 rounded-lg border border-[#1B4332]/15 bg-[#F1F3F1] text-sm text-[#3D4442] focus:outline-none"
+              >
+                <option value="">Pilih keputusan...</option>
+                <option value="disetujui">Diterima</option>
+                <option value="ditolak">Ditolak</option>
+              </select>
               <div className="flex items-center gap-2">
                 <button
                   disabled={
-                    !semuaTerverifikasi ||
-                    !decision ||
-                    !nomorSurat.trim() ||
-                    sendingKeputusan
+                    !semuaTerverifikasi || !decision || sendingKeputusan
                   }
                   onClick={kirimKeputusan}
                   className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-40"
                 >
                   <Send size={15} />
-                  {sendingKeputusan ? "Mengirim..." : "Kirim Keputusan & Surat"}
+                  {sendingKeputusan ? "Mengirim..." : "Kirim Keputusan"}
                 </button>
                 {sudahDiputuskan && (
                   <button
@@ -4216,28 +4179,6 @@ function TrackingStatus({
           ))}
         </div>
       </Card>
-
-      {p.surat_url && (
-        <Card>
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div>
-              <h3 className="font-bold text-[#1B4332]">
-                Surat Keputusan Magang
-              </h3>
-              <p className="text-xs text-[#6B7770] mt-0.5">
-                Nomor {p.nomor_surat}
-                {p.surat_dikirim_at && ` • diterbitkan ${p.surat_dikirim_at}`}
-              </p>
-            </div>
-            <button
-              onClick={() => openAuthenticatedFile(p.surat_url!)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors"
-            >
-              <Download size={15} /> Unduh Surat
-            </button>
-          </div>
-        </Card>
-      )}
 
       <Card>
         <h3 className="font-bold text-[#1B4332] mb-2">Informasi</h3>
