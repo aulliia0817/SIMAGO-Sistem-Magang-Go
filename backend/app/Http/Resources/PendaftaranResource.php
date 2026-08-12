@@ -29,11 +29,6 @@ class PendaftaranResource extends JsonResource
             'status' => $this->status,
             'catatan_admin' => $this->catatan_admin,
             'dokumen_dikirim' => $this->dokumen_dikirim_at !== null,
-            'nomor_surat' => $this->nomor_surat,
-            'surat_dikirim_at' => $this->surat_dikirim_at
-                ? $this->surat_dikirim_at->locale('id')->translatedFormat('d M Y, H:i')
-                : null,
-            'surat_url' => $this->surat_path ? "/pendaftar/{$this->id}/surat" : null,
             'sudah_ditempatkan' => $this->relationLoaded('pesertaMagang') ? $this->pesertaMagang !== null : null,
             'dokumen' => DokumenResource::collection($this->whenLoaded('dokumens')),
         ];

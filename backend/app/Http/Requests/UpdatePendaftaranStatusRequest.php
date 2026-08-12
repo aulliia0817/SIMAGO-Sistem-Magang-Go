@@ -20,7 +20,6 @@ class UpdatePendaftaranStatusRequest extends FormRequest
             // langsung dipakai untuk membuat PDF surat balasannya.
             'status' => ['required', 'in:menunggu,disetujui,ditolak'],
             'catatan_admin' => ['nullable', 'string'],
-            'nomor_surat' => ['required_if:status,disetujui,ditolak', 'nullable', 'string', 'max:100'],
         ];
     }
 }

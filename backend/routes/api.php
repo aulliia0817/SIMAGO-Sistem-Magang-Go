@@ -34,7 +34,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/dokumen/{dokumen}/file', [DokumenController::class, 'file']);
     Route::get('/sertifikat/{sertifikat}/file', [SertifikatController::class, 'file']);
-    Route::get('/pendaftar/{pendaftaran}/surat', [PendaftaranController::class, 'suratFile']);
 
     Route::get('/notifikasi', [NotifikasiController::class, 'index']);
     Route::put('/notifikasi/{notifikasi}/baca', [NotifikasiController::class, 'markRead']);

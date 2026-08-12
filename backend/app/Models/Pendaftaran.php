@@ -19,9 +19,6 @@ class Pendaftaran extends Model
         'status',
         'catatan_admin',
         'dokumen_dikirim_at',
-        'nomor_surat',
-        'surat_path',
-        'surat_dikirim_at',
     ];
 
     protected function casts(): array
@@ -30,7 +27,6 @@ class Pendaftaran extends Model
             'tanggal_mulai' => 'date',
             'tanggal_selesai' => 'date',
             'dokumen_dikirim_at' => 'datetime',
-            'surat_dikirim_at' => 'datetime',
         ];
     }
 
