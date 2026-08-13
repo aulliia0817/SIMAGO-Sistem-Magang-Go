@@ -62,6 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/laporan', [LaporanHarianController::class, 'store']);
         Route::get('/sertifikat/saya', [SertifikatController::class, 'mine']);
         Route::put('/laporan/{laporanHarian}/revisi', [LaporanHarianController::class, 'revise']);
+
         Route::get('/pengumuman/aktif', [PengumumanController::class, 'aktif']);
     });
 
@@ -84,9 +85,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/pengumuman', [PengumumanController::class, 'index']);
         Route::post('/pengumuman', [PengumumanController::class, 'store']);
         Route::put('/pengumuman/{pengumuman}/arsipkan', [PengumumanController::class, 'archive']);
+        Route::put('/pengumuman/{pengumuman}/aktifkan', [PengumumanController::class, 'reactivate']);
+        Route::delete('/pengumuman/{pengumuman}', [PengumumanController::class, 'destroy']);
 
     });
-
 
     // ── Admin: peserta, absensi, laporan, sertifikat, ──────────
     Route::middleware('role:admin')->group(function () {

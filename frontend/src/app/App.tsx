@@ -45,6 +45,7 @@ import {
   Inbox,
   Megaphone,
   Archive,
+  RotateCcw,
 } from "lucide-react";
 import {
   BarChart,
@@ -81,6 +82,7 @@ type AdminPage =
   | "peserta-detail"
   | "sertifikat"
   | "laporan"
+  | "pengumuman"
   | "profil";
 type CalonPage =
   | "dashboard"
@@ -1261,10 +1263,9 @@ function Modal({
   );
 }
 
-function AdminDashboard() {
+function AdminDashboard({ setPage }: { setPage: (page: AdminPage) => void }) {
   const [periodOpen, setPeriodOpen] = useState(true);
   const [togglingPeriod, setTogglingPeriod] = useState(false);
-  const [pengumumanOpen, setPengumumanOpen] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [divisi, setDivisi] = useState<Divisi[]>([]);
   const [recent, setRecent] = useState<PendaftarItem[]>([]);
@@ -1312,8 +1313,8 @@ function AdminDashboard() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setPengumumanOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border border-[#1B4332]/20 text-[#1B4332] hover:bg-[#D1FAE5] transition-colors"
+            onClick={() => setPage("pengumuman")}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-[#1B4332] text-white hover:bg-[#2D5A45] transition-colors"
           >
             <Megaphone size={16} />
             Pengumuman
@@ -1344,12 +1345,6 @@ function AdminDashboard() {
           </button>
         </div>
       </div>
-
-      {pengumumanOpen && (
-        <Modal title="Pengumuman" onClose={() => setPengumumanOpen(false)}>
-          <AdminPengumuman />
-        </Modal>
-      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <SummaryCard
@@ -3115,7 +3110,7 @@ function AdminLaporan() {
 // Admin membuat -> otomatis Aktif -> langsung tampil di Dashboard Peserta
 // -> tetap tampil selama masih Aktif -> Admin mengarsipkan -> hilang dari
 // Dashboard Peserta -> tetap tersimpan sebagai Arsip/Riwayat Admin.
-function AdminPengumuman() {
+function AdminPengumuman({ onBack }: { onBack: () => void }) {
   const [list, setList] = useState<PengumumanItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -3125,6 +3120,10 @@ function AdminPengumuman() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const [archivingId, setArchivingId] = useState<number | null>(null);
+  const [reactivatingId, setReactivatingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -3183,14 +3182,94 @@ function AdminPengumuman() {
     }
   }
 
+  async function handleReactivate(p: PengumumanItem) {
+    if (
+      !confirm(
+        `Aktifkan kembali pengumuman "${p.judul}"? Pengumuman ini akan langsung tampil lagi di running text Dashboard Peserta.`,
+      )
+    )
+      return;
+    setReactivatingId(p.id);
+    try {
+      await api.put(`/pengumuman/${p.id}/aktifkan`);
+      setTab("aktif");
+      load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Gagal mengaktifkan kembali pengumuman."));
+    } finally {
+      setReactivatingId(null);
+    }
+  }
+
+  async function handleDelete(p: PengumumanItem) {
+    if (
+      !confirm(
+        `Hapus permanen pengumuman "${p.judul}"? Tindakan ini tidak dapat dibatalkan.`,
+      )
+    )
+      return;
+    setDeletingId(p.id);
+    try {
+      await api.delete(`/pengumuman/${p.id}`);
+      setSelectedIds((ids) => ids.filter((id) => id !== p.id));
+      load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Gagal menghapus pengumuman."));
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  function toggleSelect(id: number) {
+    setSelectedIds((ids) =>
+      ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id],
+    );
+  }
+
+  function toggleSelectAll(ids: number[]) {
+    setSelectedIds((prev) => (prev.length === ids.length ? [] : ids));
+  }
+
+  async function handleBulkDelete() {
+    if (selectedIds.length === 0) return;
+    if (
+      !confirm(
+        `Hapus permanen ${selectedIds.length} pengumuman terpilih? Tindakan ini tidak dapat dibatalkan.`,
+      )
+    )
+      return;
+    setBulkDeleting(true);
+    try {
+      await Promise.all(
+        selectedIds.map((id) => api.delete(`/pengumuman/${id}`)),
+      );
+      setSelectedIds([]);
+      load();
+    } catch (err) {
+      alert(apiErrorMessage(err, "Sebagian pengumuman gagal dihapus."));
+      load();
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
   const aktifList = list.filter((p) => p.status === "aktif");
   const arsipList = list.filter((p) => p.status === "diarsipkan");
   const shown = tab === "aktif" ? aktifList : arsipList;
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-center gap-3 flex-wrap justify-between">
         <h1 className="text-xl font-bold text-[#1B4332]">Pengumuman</h1>
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-sm font-semibold text-[#6B7770] hover:text-[#1B4332] transition-colors"
+        >
+          <ArrowLeft size={15} /> Kembali ke Dashboard
+        </button>
+      </div>
+
+      <div className="flex items-center justify-end">
         <button
           onClick={openAdd}
           className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors"
@@ -3252,7 +3331,10 @@ function AdminPengumuman() {
         ).map((t) => (
           <button
             key={t.key}
-            onClick={() => setTab(t.key)}
+            onClick={() => {
+              setTab(t.key);
+              setSelectedIds([]);
+            }}
             className={cn(
               "px-4 py-1.5 rounded-md text-sm font-semibold transition-colors",
               tab === t.key
@@ -3264,6 +3346,35 @@ function AdminPengumuman() {
           </button>
         ))}
       </div>
+
+      {tab === "arsip" && arsipList.length > 0 && (
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <label className="flex items-center gap-2 text-sm text-[#3D4442] cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={
+                selectedIds.length > 0 &&
+                selectedIds.length === arsipList.length
+              }
+              onChange={() => toggleSelectAll(arsipList.map((p) => p.id))}
+              className="w-4 h-4 rounded border-[#1B4332]/30 text-[#1B4332] focus:ring-[#1B4332]/20"
+            />
+            Pilih Semua
+          </label>
+          {selectedIds.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-colors disabled:opacity-50"
+            >
+              <Trash2 size={13} />{" "}
+              {bulkDeleting
+                ? "Menghapus..."
+                : `Hapus Terpilih (${selectedIds.length})`}
+            </button>
+          )}
+        </div>
+      )}
 
       <Card>
         {loading ? (
@@ -3286,11 +3397,21 @@ function AdminPengumuman() {
                 className="p-4 rounded-xl border border-[#1B4332]/10 bg-[#F1F3F1]/40"
               >
                 <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div>
-                    <p className="font-bold text-[#1B4332]">{p.judul}</p>
-                    <p className="text-sm text-[#3D4442] mt-1 whitespace-pre-line">
-                      {p.isi}
-                    </p>
+                  <div className="flex items-start gap-3">
+                    {tab === "arsip" && (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(p.id)}
+                        onChange={() => toggleSelect(p.id)}
+                        className="w-4 h-4 mt-1 rounded border-[#1B4332]/30 text-[#1B4332] focus:ring-[#1B4332]/20"
+                      />
+                    )}
+                    <div>
+                      <p className="font-bold text-[#1B4332]">{p.judul}</p>
+                      <p className="text-sm text-[#3D4442] mt-1 whitespace-pre-line">
+                        {p.isi}
+                      </p>
+                    </div>
                   </div>
                   <StatusBadge status={p.status} />
                 </div>
@@ -3302,16 +3423,40 @@ function AdminPengumuman() {
                       <> · Diarsipkan: {p.diarsipkan_pada}</>
                     )}
                   </span>
-                  {p.status === "aktif" && (
-                    <button
-                      onClick={() => handleArchive(p)}
-                      disabled={archivingId === p.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors font-semibold disabled:opacity-50"
-                    >
-                      <Archive size={13} />{" "}
-                      {archivingId === p.id ? "Mengarsipkan..." : "Arsipkan"}
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {p.status === "aktif" && (
+                      <button
+                        onClick={() => handleArchive(p)}
+                        disabled={archivingId === p.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors font-semibold disabled:opacity-50"
+                      >
+                        <Archive size={13} />{" "}
+                        {archivingId === p.id ? "Mengarsipkan..." : "Arsipkan"}
+                      </button>
+                    )}
+                    {p.status === "diarsipkan" && (
+                      <>
+                        <button
+                          onClick={() => handleReactivate(p)}
+                          disabled={reactivatingId === p.id}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#1B4332]/20 text-[#1B4332] hover:bg-[#D1FAE5] transition-colors font-semibold disabled:opacity-50"
+                        >
+                          <RotateCcw size={13} />{" "}
+                          {reactivatingId === p.id
+                            ? "Mengaktifkan..."
+                            : "Aktifkan Kembali"}
+                        </button>
+                        <button
+                          onClick={() => handleDelete(p)}
+                          disabled={deletingId === p.id}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors font-semibold disabled:opacity-50"
+                        >
+                          <Trash2 size={13} />{" "}
+                          {deletingId === p.id ? "Menghapus..." : "Hapus"}
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -6543,7 +6688,7 @@ export default function App() {
     if (role === "admin") {
       switch (page as AdminPage) {
         case "dashboard":
-          return <AdminDashboard />;
+          return <AdminDashboard setPage={setPage} />;
         case "pendaftar":
           return (
             <AdminPendaftar
@@ -6598,12 +6743,14 @@ export default function App() {
               onBack={() => setPage("dashboard")}
             />
           ) : (
-            <AdminDashboard />
+            <AdminDashboard setPage={setPage} />
           );
         case "sertifikat":
           return <AdminSertifikat />;
         case "laporan":
           return <AdminLaporan />;
+        case "pengumuman":
+          return <AdminPengumuman onBack={() => setPage("dashboard")} />;
         case "profil":
           return <AdminProfil />;
       }
