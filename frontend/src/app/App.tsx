@@ -84,12 +84,7 @@ type AdminPage =
   | "laporan"
   | "pengumuman"
   | "profil";
-type CalonPage =
-  | "dashboard"
-  | "pendaftaran"
-  | "dokumen"
-  | "tracking"
-  | "profil";
+type CalonPage = "dashboard" | "pendaftaran" | "profil";
 type PesertaPage = CalonPage | "laporan-peserta" | "sertifikat-peserta";
 type Page = AdminPage | CalonPage | PesertaPage;
 
@@ -416,18 +411,12 @@ function getNavItems(role: Role): NavItem[] {
   // calon / peserta
   const base: NavItem[] = [
     { icon: <Home size={18} />, label: "Dashboard", page: "dashboard" },
+    { icon: <UserCircle size={18} />, label: "Profil", page: "profil" },
     {
       icon: <ClipboardList size={18} />,
       label: "Pendaftaran",
       page: "pendaftaran",
     },
-    { icon: <Upload size={18} />, label: "Upload Dokumen", page: "dokumen" },
-    {
-      icon: <BarChart3 size={18} />,
-      label: "Tracking Status",
-      page: "tracking",
-    },
-    { icon: <UserCircle size={18} />, label: "Profil", page: "profil" },
   ];
   if (role === "peserta") {
     return [
@@ -3518,13 +3507,11 @@ function PengumumanTicker() {
                     </p>
                   </div>
                   {index < items.length - 1 && (
-                    <span className="text-[#6B7770] px-2 shrink-0">
-                    </span>
+                    <span className="text-[#6B7770] px-2 shrink-0"></span>
                   )}
                 </div>
               ))}
-              <span className="text-[#6B7770] px-2 shrink-0">
-              </span>
+              <span className="text-[#6B7770] px-2 shrink-0"></span>
             </div>
           ))}
         </div>
@@ -3806,11 +3793,75 @@ function CalonDashboard({ userStatus }: { userStatus: "calon" | "peserta" }) {
   );
 }
 
+/**
+ * Menu "Pendaftaran" — satu pintu untuk seluruh alur calon peserta:
+ * belum pernah daftar → form; sudah pernah → riwayat; pilih satu →
+ * tracking (dengan upload dokumen tergabung di dalamnya).
+ */
+function PendaftaranPage({
+  selectedPendaftaranId,
+  setSelectedPendaftaranId,
+}: {
+  selectedPendaftaranId: number | null;
+  setSelectedPendaftaranId: (id: number | null) => void;
+}) {
+  const [riwayat, setRiwayat] = useState<PendaftarItem[] | null>(null);
+  const [error, setError] = useState("");
+  const [showForm, setShowForm] = useState(false);
+
+  const loadRiwayat = useCallback(async () => {
+    setError("");
+    try {
+      const { data } = await api.get("/pendaftaran/riwayat");
+      setRiwayat(data.data);
+    } catch (err) {
+      setError(apiErrorMessage(err, "Gagal memuat riwayat pendaftaran."));
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRiwayat();
+  }, [loadRiwayat]);
+
+  if (selectedPendaftaranId) {
+    return (
+      <TrackingStatus
+        pendaftaranId={selectedPendaftaranId}
+        onBack={() => setSelectedPendaftaranId(null)}
+        onDaftarUlang={() => {
+          setSelectedPendaftaranId(null);
+          setShowForm(true);
+        }}
+      />
+    );
+  }
+
+  if (riwayat === null) return <LoadingState />;
+  if (error) return <ErrorState message={error} onRetry={loadRiwayat} />;
+
+  if (showForm || riwayat.length === 0) {
+    return (
+      <FormPendaftaran
+        onSubmitted={(id) => {
+          setShowForm(false);
+          setSelectedPendaftaranId(id);
+          loadRiwayat();
+        }}
+      />
+    );
+  }
+
+  return (
+    <RiwayatPendaftaran
+      onSelect={setSelectedPendaftaranId}
+      onDaftarBaru={() => setShowForm(true)}
+    />
+  );
+}
+
 function FormPendaftaran({
-  setPage,
   onSubmitted,
 }: {
-  setPage: (p: Page) => void;
   onSubmitted: (id: number) => void;
 }) {
   const [step, setStep] = useState(1);
@@ -3861,12 +3912,11 @@ function FormPendaftaran({
     setSubmitting(true);
     setSubmitError("");
     try {
-      await api.post("/pendaftaran", {
+      const { data } = await api.post("/pendaftaran", {
         ...form,
         divisi_id: Number(form.divisi_id),
       });
-      onSubmitted(1); // Assuming 1 is the ID of the submitted application
-      setPage("tracking");
+      onSubmitted(data.data.id);
     } catch (err) {
       setSubmitError(apiErrorMessage(err, "Gagal mengirim pendaftaran."));
     } finally {
@@ -4199,7 +4249,13 @@ function FormPendaftaran({
   );
 }
 
-function UploadDokumen() {
+function UploadDokumen({
+  embedded = false,
+  onChanged,
+}: {
+  embedded?: boolean;
+  onChanged?: () => void;
+}) {
   const [docs, setDocs] = useState<DokumenItem[]>([]);
   const [sudahDikirim, setSudahDikirim] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -4246,7 +4302,8 @@ function UploadDokumen() {
       await api.post(`/dokumen/${docId}/upload`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      load();
+      await load();
+      onChanged?.();
     } catch (err) {
       alert(apiErrorMessage(err, "Gagal mengunggah dokumen."));
     } finally {
@@ -4259,7 +4316,8 @@ function UploadDokumen() {
     setSending(true);
     try {
       await api.put("/pendaftaran/kirim-dokumen");
-      load();
+      await load();
+      onChanged?.();
     } catch (err) {
       setSendError(apiErrorMessage(err, "Gagal mengirim berkas."));
     } finally {
@@ -4275,8 +4333,10 @@ function UploadDokumen() {
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   return (
-    <div className="space-y-5 max-w-2xl mx-auto">
-      <h1 className="text-xl font-bold text-[#1B4332]">Upload Dokumen</h1>
+    <div className={embedded ? "space-y-4" : "space-y-5 max-w-2xl mx-auto"}>
+      {!embedded && (
+        <h1 className="text-xl font-bold text-[#1B4332]">Upload Dokumen</h1>
+      )}
 
       <input
         ref={fileInputRef}
@@ -4431,7 +4491,13 @@ function UploadDokumen() {
   );
 }
 
-function RiwayatPendaftaran({ onSelect }: { onSelect: (id: number) => void }) {
+function RiwayatPendaftaran({
+  onSelect,
+  onDaftarBaru,
+}: {
+  onSelect: (id: number) => void;
+  onDaftarBaru: () => void;
+}) {
   const [list, setList] = useState<PendaftarItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -4456,9 +4522,25 @@ function RiwayatPendaftaran({ onSelect }: { onSelect: (id: number) => void }) {
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
+  // Boleh mendaftar lagi kalau pendaftaran terakhir sudah punya keputusan
+  // (ditolak/kedaluwarsa) — selama masih "menunggu" tidak boleh daftar baru.
+  const bolehDaftarBaru = list.length === 0 || list[0].status !== "menunggu";
+
   return (
     <div className="space-y-5 max-w-2xl mx-auto">
-      <h1 className="text-xl font-bold text-[#1B4332]">Riwayat Pendaftaran</h1>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h1 className="text-xl font-bold text-[#1B4332]">
+          Riwayat Pendaftaran
+        </h1>
+        {bolehDaftarBaru && (
+          <button
+            onClick={onDaftarBaru}
+            className="flex items-center gap-2 px-3.5 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors"
+          >
+            <Plus size={14} /> Daftar Baru
+          </button>
+        )}
+      </div>
 
       {list.length === 0 ? (
         <Card>
@@ -4479,8 +4561,13 @@ function RiwayatPendaftaran({ onSelect }: { onSelect: (id: number) => void }) {
                   Diajukan {p.tanggal} — Divisi {p.divisi}
                 </p>
                 <p className="text-xs text-[#6B7770] mt-0.5">
-                  Batas pengumuman: {p.batas_pengumuman}
+                  Periode magang: {p.periode}
                 </p>
+                {p.status === "menunggu" && (
+                  <p className="text-xs text-[#6B7770] mt-0.5">
+                    Batas pengumuman: {p.batas_pengumuman}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
                 <StatusBadge status={p.status} />
@@ -4502,9 +4589,11 @@ function RiwayatPendaftaran({ onSelect }: { onSelect: (id: number) => void }) {
 function TrackingStatus({
   pendaftaranId,
   onBack,
+  onDaftarUlang,
 }: {
   pendaftaranId: number;
   onBack: () => void;
+  onDaftarUlang: () => void;
 }) {
   const [p, setP] = useState<PendaftarItem | null>(null);
   const [loading, setLoading] = useState(true);
@@ -4592,7 +4681,7 @@ function TrackingStatus({
         p.status === "disetujui"
           ? "Selamat, kamu lolos seleksi!"
           : p.status === "ditolak"
-            ? "Belum lolos seleksi kali ini."
+            ? p.catatan_admin || "Belum lolos seleksi kali ini."
             : kedaluwarsa
               ? "Pendaftaran kedaluwarsa — silakan daftar ulang."
               : "Lolos / tidak lolos seleksi",
@@ -4659,6 +4748,35 @@ function TrackingStatus({
           ))}
         </div>
       </Card>
+
+      {p.status === "menunggu" && (
+        <Card>
+          <h3 className="font-bold text-[#1B4332] mb-1">
+            Lengkapi & Kirim Dokumen
+          </h3>
+          <p className="text-xs text-[#6B7770] mb-4">
+            Unggah seluruh dokumen wajib di bawah ini, lalu kirim untuk
+            diverifikasi admin.
+          </p>
+          <UploadDokumen embedded onChanged={load} />
+        </Card>
+      )}
+
+      {(p.status === "ditolak" || kedaluwarsa) && (
+        <Card className="flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-sm text-[#3D4442]">
+            {kedaluwarsa
+              ? "Pendaftaran ini sudah melewati batas pengumuman. Kamu bisa mengajukan pendaftaran baru."
+              : "Kamu bisa mengajukan pendaftaran baru untuk mencoba kembali."}
+          </p>
+          <button
+            onClick={onDaftarUlang}
+            className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors flex-shrink-0"
+          >
+            <Plus size={15} /> Daftar Baru
+          </button>
+        </Card>
+      )}
 
       <Card>
         <h3 className="font-bold text-[#1B4332] mb-2">Informasi</h3>
@@ -6763,21 +6881,10 @@ export default function App() {
           return <CalonDashboard userStatus={role} />;
         case "pendaftaran":
           return (
-            <FormPendaftaran
-              setPage={setPage}
-              onSubmitted={(id) => setSelectedPendaftaranId(id)}
+            <PendaftaranPage
+              selectedPendaftaranId={selectedPendaftaranId}
+              setSelectedPendaftaranId={setSelectedPendaftaranId}
             />
-          );
-        case "dokumen":
-          return <UploadDokumen />;
-        case "tracking":
-          return selectedPendaftaranId ? (
-            <TrackingStatus
-              pendaftaranId={selectedPendaftaranId}
-              onBack={() => setSelectedPendaftaranId(null)}
-            />
-          ) : (
-            <RiwayatPendaftaran onSelect={setSelectedPendaftaranId} />
           );
         case "profil":
           return <PesertaProfil />;
