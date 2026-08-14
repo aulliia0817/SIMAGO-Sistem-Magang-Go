@@ -20,7 +20,7 @@ class PendaftaranController extends Controller
     /** Admin: daftar seluruh pendaftar, dengan filter pencarian & status. */
     public function index(Request $request)
     {
-        $query = Pendaftaran::with(['mahasiswa.user', 'divisi', 'pesertaMagang']);
+        $query = Pendaftaran::with(['mahasiswa.user', 'divisi', 'pesertaMagang', 'dokumens']);
 
         if ($request->boolean('hanya_terkirim')) {
             $query->whereNotNull('dokumen_dikirim_at');
@@ -53,7 +53,7 @@ class PendaftaranController extends Controller
 
     public function show(Pendaftaran $pendaftaran)
     {
-        return new PendaftaranResource($pendaftaran->load(['mahasiswa.user', 'divisi', 'dokumens']));
+        return new PendaftaranResource($pendaftaran->load(['mahasiswa.user', 'divisi', 'dokumens', 'pesertaMagang']));
     }
 
     /** Calon Magang: submit pendaftaran baru (juga membuat profil Mahasiswa jika belum ada). */
@@ -187,7 +187,7 @@ class PendaftaranController extends Controller
             'admin',
             'Berkas Pendaftaran Telah Dikirim',
             "{$request->user()->name} telah mengirimkan seluruh berkas untuk diverifikasi.",
-            halaman: 'verifikasi',
+            halaman: 'pendaftar',
             pendaftaranId: $pendaftaran->id
         );
 
@@ -200,17 +200,44 @@ class PendaftaranController extends Controller
      */
     public function updateStatus(UpdatePendaftaranStatusRequest $request, Pendaftaran $pendaftaran)
     {
-        $pendaftaran->load(['mahasiswa.user', 'divisi']);
+        $data = $request->validated();
 
-        if (in_array($data['status'], ['disetujui', 'ditolak'])) {
-            $diterima = $data['status'] === 'disetujui';
+        $pendaftaran->update([
+            'status' => $data['status'],
+            'catatan_admin' => $data['catatan_admin'] ?? $pendaftaran->catatan_admin,
+        ]);
+
+        $pendaftaran->load(['mahasiswa.user', 'divisi', 'pesertaMagang']);
+
+        if ($data['status'] === 'disetujui') {
+            // Disetujui → otomatis jadi peserta magang, mengikuti divisi &
+            // periode yang dipilih saat mendaftar. Admin masih bisa mengubah
+            // divisinya lewat dropdown "Penempatan" di halaman Data Pendaftar.
+            if (!$pendaftaran->pesertaMagang) {
+                PesertaMagang::create([
+                    'pendaftaran_id' => $pendaftaran->id,
+                    'mahasiswa_id' => $pendaftaran->mahasiswa_id,
+                    'divisi_id' => $pendaftaran->divisi_id,
+                    'tanggal_mulai' => $pendaftaran->tanggal_mulai,
+                    'tanggal_selesai' => $pendaftaran->tanggal_selesai,
+                    'status' => 'aktif',
+                ]);
+                $pendaftaran->mahasiswa->user()->update(['role' => 'peserta']);
+                $pendaftaran->load('pesertaMagang');
+            }
 
             Notifikasi::kirim(
                 $pendaftaran->mahasiswa->user,
                 'Hasil Seleksi Pendaftaran Magang',
-                $diterima
-                    ? "Selamat! Pendaftaran magang Anda di divisi {$pendaftaran->divisi->nama} telah disetujui."
-                    : 'Mohon maaf, pendaftaran magang Anda belum dapat kami terima kali ini.',
+                "Selamat! Anda diterima sebagai peserta magang di divisi {$pendaftaran->divisi->nama}. Silakan pantau jadwal, absensi, dan laporan harian Anda mulai {$pendaftaran->tanggal_mulai->translatedFormat('d M Y')}.",
+                halaman: 'tracking',
+                pendaftaranId: $pendaftaran->id
+            );
+        } elseif ($data['status'] === 'ditolak') {
+            Notifikasi::kirim(
+                $pendaftaran->mahasiswa->user,
+                'Hasil Seleksi Pendaftaran Magang',
+                'Mohon maaf, pendaftaran magang Anda belum dapat kami terima kali ini.',
                 halaman: 'tracking',
                 pendaftaranId: $pendaftaran->id
             );
@@ -218,7 +245,7 @@ class PendaftaranController extends Controller
 
         return new PendaftaranResource($pendaftaran);
     }
-    
+
     public function destroy(Pendaftaran $pendaftaran)
     {
         $pendaftaran->delete();

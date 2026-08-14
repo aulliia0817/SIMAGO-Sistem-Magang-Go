@@ -4,40 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PesertaMagangResource;
-use App\Models\Pendaftaran;
 use App\Models\PesertaMagang;
 use Illuminate\Http\Request;
 
 class PesertaMagangController extends Controller
 {
-    /** Admin: tempatkan pendaftar yang sudah disetujui ke divisi & periode magang. */
-    public function store(Request $request)
-    {
-        $data = $request->validate([
-            'pendaftaran_id' => ['required', 'exists:pendaftarans,id'],
-            'divisi_id' => ['required', 'exists:divisis,id'],
-            'tanggal_mulai' => ['required', 'date'],
-            'tanggal_selesai' => ['required', 'date', 'after:tanggal_mulai'],
-        ]);
-
-        $pendaftaran = Pendaftaran::findOrFail($data['pendaftaran_id']);
-        abort_if($pendaftaran->status !== 'disetujui', 422, 'Pendaftaran belum disetujui.');
-        abort_if((bool) $pendaftaran->pesertaMagang, 422, 'Pendaftaran ini sudah ditempatkan.');
-
-        $peserta = PesertaMagang::create([
-            'pendaftaran_id' => $pendaftaran->id,
-            'mahasiswa_id' => $pendaftaran->mahasiswa_id,
-            'divisi_id' => $data['divisi_id'],
-            'tanggal_mulai' => $data['tanggal_mulai'],
-            'tanggal_selesai' => $data['tanggal_selesai'],
-            'status' => 'aktif',
-        ]);
-
-        $pendaftaran->mahasiswa->user()->update(['role' => 'peserta']);
-
-        return new PesertaMagangResource($peserta->load(['mahasiswa.user', 'divisi']));
-    }
-
     /** Admin: semua peserta magang. */
     public function index(Request $request)
     {

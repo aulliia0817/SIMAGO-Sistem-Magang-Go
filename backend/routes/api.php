@@ -102,7 +102,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/laporan', [LaporanHarianController::class, 'index']);
         Route::get('/sertifikat', [SertifikatController::class, 'index']);
 
-        Route::get('/verifikasi', [DokumenController::class, 'index']);
         Route::put('/verifikasi/{dokumen}', [DokumenController::class, 'review']);
     });
 });

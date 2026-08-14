@@ -49,25 +49,11 @@ class DokumenController extends Controller
             'admin',
             'Calon Peserta Memperbarui Data Pendaftaran',
             "{$request->user()->name} mengunggah/memperbarui dokumen \"{$dokumen->jenis}\".",
-            halaman: 'verifikasi',
+            halaman: 'pendaftar',
             pendaftaranId: $pendaftaran->id
         );
 
         return new DokumenResource($dokumen);
-    }
-
-    /** Admin: daftar seluruh dokumen yang perlu diverifikasi (halaman Verifikasi Berkas). */
-    public function index(Request $request)
-    {
-        $query = Dokumen::with('pendaftaran.mahasiswa.user');
-
-        if ($status = $request->query('status')) {
-            if ($status !== 'semua') {
-                $query->where('status', $status);
-            }
-        }
-
-        return DokumenResource::collection($query->latest()->paginate($request->integer('per_page', 20)));
     }
 
     /** Admin: verifikasi / tolak satu dokumen. */
