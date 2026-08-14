@@ -17,20 +17,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // NOTE: kita pakai Sanctum dalam mode token (Bearer), bukan cookie/session,
-        // jadi statefulApi() sengaja TIDAK diaktifkan — kalau diaktifkan, request dari
-        // origin yang terdaftar di config/sanctum.php akan dipaksa lewat middleware
-        // session + CSRF milik web, dan login token akan gagal dengan
-        // "CSRF token mismatch" karena axios tidak mengirim cookie/XSRF token.
-
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureUserHasRole::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        // Consistent JSON error responses for the API, matching the
-        // Loading / Empty / Not Found / Unauthorized / Forbidden /
-        // Validation / Server Error states the frontend expects.
         $exceptions->render(function (ValidationException $e, Request $request) {
             if ($request->is('api/*')) {
                 return response()->json([
@@ -58,8 +49,15 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
             if ($request->is('api/*')) {
+                $message = $e->getMessage();
+                $pesanBawaanRouting =
+                    str_starts_with($message, 'The route ') &&
+                    str_contains($message, 'could not be found');
+
                 return response()->json([
-                    'message' => 'Data tidak ditemukan.',
+                    'message' => ($message !== '' && ! $pesanBawaanRouting)
+                        ? $message
+                        : 'Data tidak ditemukan.',
                 ], 404);
             }
         });

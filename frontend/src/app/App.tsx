@@ -73,6 +73,7 @@ type AdminPage =
   | "pendaftar"
   | "verifikasi"
   | "divisi"
+  | "presensi"
   | "monitoring"
   | "absensi-riwayat"
   | "review-laporan"
@@ -374,18 +375,8 @@ function getNavItems(role: Role): NavItem[] {
       },
       {
         icon: <BarChart3 size={18} />,
-        label: "Monitoring Kehadiran",
-        page: "monitoring",
-      },
-      {
-        icon: <Fingerprint size={18} />,
-        label: "Riwayat Absensi",
-        page: "absensi-riwayat",
-      },
-      {
-        icon: <BookOpen size={18} />,
-        label: "Review Laporan",
-        page: "review-laporan",
+        label: "Presensi & Kegiatan",
+        page: "presensi",
       },
       {
         icon: <Star size={18} />,
@@ -521,7 +512,11 @@ function Sidebar({
             className={cn(
               "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
               !open && "justify-center px-0",
-              page === item.page
+              page === item.page ||
+                (item.page === "presensi" &&
+                  ["monitoring", "absensi-riwayat", "review-laporan"].includes(
+                    page,
+                  ))
                 ? "bg-white/15 text-white"
                 : "text-white/65 hover:bg-white/8 hover:text-white",
             )}
@@ -6209,6 +6204,68 @@ function DetailPeserta({
   );
 }
 
+// ─── Presensi & Kegiatan ────────────────────────────────────────────────────
+// Halaman induk gabungan navigasi untuk 3 fitur yang sudah ada:
+// Monitoring Kehadiran, Riwayat Absensi, Review Laporan.
+// PENTING: ini HANYA menggabungkan navigasi/tampilan (tab). Ketiga komponen
+// (AdminMonitoring, AbsensiVerify, ReviewLaporan) dipakai ulang persis apa
+// adanya — tidak diubah sama sekali — masing-masing tetap punya API,
+// state, dan logikanya sendiri-sendiri.
+type PresensiTab = "monitoring" | "absensi" | "laporan";
+
+function PresensiKegiatan({
+  initialTab,
+  onSelectPeserta,
+}: {
+  initialTab: PresensiTab;
+  onSelectPeserta: (id: number) => void;
+}) {
+  const [tab, setTab] = useState<PresensiTab>(initialTab);
+
+  // Sinkron ulang tab aktif kalau halaman ini dibuka lewat rute lama
+  // (mis. klik notifikasi "review-laporan") sementara komponen sudah terpasang.
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
+
+  const tabs: { key: PresensiTab; label: string }[] = [
+    { key: "monitoring", label: "Monitoring Kehadiran" },
+    { key: "absensi", label: "Riwayat Absensi" },
+    { key: "laporan", label: "Review Laporan" },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <h1 className="text-xl font-bold text-[#1B4332]">
+        Presensi & Kegiatan
+      </h1>
+
+      <div className="flex gap-1 bg-[#F1F3F1] p-1 rounded-lg w-fit overflow-x-auto">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={cn(
+              "px-4 py-1.5 rounded-md text-sm font-semibold transition-colors whitespace-nowrap",
+              tab === t.key
+                ? "bg-white text-[#1B4332] shadow-sm"
+                : "text-[#6B7770] hover:text-[#3D4442]",
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "monitoring" && <AdminMonitoring />}
+      {tab === "absensi" && (
+        <AbsensiVerify onSelectPeserta={onSelectPeserta} />
+      )}
+      {tab === "laporan" && <ReviewLaporan onSelectPeserta={onSelectPeserta} />}
+    </div>
+  );
+}
+
 function AbsensiVerify({
   onSelectPeserta,
 }: {
@@ -6749,26 +6806,26 @@ export default function App() {
           );
         case "divisi":
           return <AdminDivisi />;
+        case "presensi":
         case "monitoring":
-          return <AdminMonitoring />;
         case "absensi-riwayat":
+        case "review-laporan": {
+          const initialTab: PresensiTab =
+            page === "absensi-riwayat"
+              ? "absensi"
+              : page === "review-laporan"
+                ? "laporan"
+                : "monitoring";
           return (
-            <AbsensiVerify
+            <PresensiKegiatan
+              initialTab={initialTab}
               onSelectPeserta={(id) => {
                 setSelectedPesertaId(id);
                 setPage("peserta-detail");
               }}
             />
           );
-        case "review-laporan":
-          return (
-            <ReviewLaporan
-              onSelectPeserta={(id) => {
-                setSelectedPesertaId(id);
-                setPage("peserta-detail");
-              }}
-            />
-          );
+        }
         case "rekomendasi":
           return (
             <Rekomendasi
