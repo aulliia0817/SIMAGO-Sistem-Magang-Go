@@ -4503,6 +4503,18 @@ function RiwayatPendaftaran({
   );
 }
 
+// Format tanggal ISO ("2026-08-17") jadi "17 Agustus 2026" — dipakai khusus
+// di pesan pemberitahuan hasil seleksi (TrackingStatus), beda dari format
+// pendek "17 Agt 2026" yang dipakai di tabel/daftar lain.
+function formatTanggalPanjang(iso: string) {
+  if (!iso) return "-";
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
 function TrackingStatus({
   pendaftaranId,
   onBack,
@@ -4536,9 +4548,9 @@ function TrackingStatus({
   const backButton = (
     <button
       onClick={onBack}
-      className="flex items-center gap-1.5 text-sm font-semibold text-[#1B4332] hover:underline mb-1"
+      className="flex items-center gap-1.5 text-sm font-semibold text-[#6B7770] hover:text-[#1B4332] transition-colors"
     >
-      <ArrowLeft size={14} /> Kembali ke Riwayat Pendaftaran
+      <ArrowLeft size={15} /> Kembali ke Riwayat Pendaftaran
     </button>
   );
 
@@ -4546,8 +4558,13 @@ function TrackingStatus({
   if (error) return <ErrorState message={error} onRetry={load} />;
   if (!p)
     return (
-      <div className="max-w-xl mx-auto space-y-3">
-        {backButton}
+      <div className="space-y-5">
+        <div className="flex items-center gap-3 flex-wrap justify-between">
+          <h1 className="text-xl font-bold text-[#1B4332]">
+            Tracking Status Pendaftaran
+          </h1>
+          {backButton}
+        </div>
         <EmptyState label="Pendaftaran tidak ditemukan." />
       </div>
     );
@@ -4608,118 +4625,227 @@ function TrackingStatus({
   ];
 
   return (
-    <div className="space-y-5 max-w-xl mx-auto">
-      {backButton}
-      <h1 className="text-xl font-bold text-[#1B4332]">
-        Tracking Status Pendaftaran
-      </h1>
+    <div className="space-y-5">
+      <div className="flex items-center gap-3 flex-wrap justify-between">
+        <h1 className="text-xl font-bold text-[#1B4332]">
+          Tracking Status Pendaftaran
+        </h1>
+        {backButton}
+      </div>
 
-      <Card>
-        <div className="space-y-0">
-          {steps.map((s, i) => (
-            <div key={i} className="flex gap-4">
-              <div className="flex flex-col items-center">
-                <div
-                  className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center border-2 flex-shrink-0 z-10",
-                    s.done
-                      ? "bg-[#1B4332] border-[#1B4332]"
-                      : s.active
-                        ? "bg-white border-[#1B4332]"
-                        : "bg-white border-[#6B7770]/30",
-                  )}
-                >
-                  {s.done ? (
-                    <Check size={14} className="text-white" />
-                  ) : s.active ? (
-                    <div className="w-3 h-3 rounded-full bg-[#1B4332]" />
-                  ) : (
-                    <div className="w-3 h-3 rounded-full bg-[#6B7770]/20" />
-                  )}
-                </div>
-                {i < steps.length - 1 && (
-                  <div
-                    className={cn(
-                      "w-0.5 flex-1 my-1",
-                      s.done ? "bg-[#1B4332]" : "bg-[#6B7770]/20",
-                    )}
-                    style={{ minHeight: 32 }}
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-5",
+          !seleksiSelesai && "lg:grid-cols-3",
+        )}
+      >
+        {!seleksiSelesai && (
+          <div className="lg:col-span-1 space-y-5">
+            <Card>
+              <div className="space-y-0">
+                {steps.map((s, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className="flex flex-col items-center">
+                      <div
+                        className={cn(
+                          "w-8 h-8 rounded-full flex items-center justify-center border-2 flex-shrink-0 z-10",
+                          s.done
+                            ? "bg-[#1B4332] border-[#1B4332]"
+                            : s.active
+                              ? "bg-white border-[#1B4332]"
+                              : "bg-white border-[#6B7770]/30",
+                        )}
+                      >
+                        {s.done ? (
+                          <Check size={14} className="text-white" />
+                        ) : s.active ? (
+                          <div className="w-3 h-3 rounded-full bg-[#1B4332]" />
+                        ) : (
+                          <div className="w-3 h-3 rounded-full bg-[#6B7770]/20" />
+                        )}
+                      </div>
+                      {i < steps.length - 1 && (
+                        <div
+                          className={cn(
+                            "w-0.5 flex-1 my-1",
+                            s.done ? "bg-[#1B4332]" : "bg-[#6B7770]/20",
+                          )}
+                          style={{ minHeight: 32 }}
+                        />
+                      )}
+                    </div>
+                    <div
+                      className={cn("pb-6", i === steps.length - 1 && "pb-0")}
+                    >
+                      <p
+                        className={cn(
+                          "font-bold text-sm",
+                          s.done || s.active
+                            ? "text-[#1B4332]"
+                            : "text-[#6B7770]",
+                        )}
+                      >
+                        {s.label}
+                      </p>
+                      <p className="text-xs text-[#6B7770] mt-0.5">{s.desc}</p>
+                      <p className="text-xs font-medium text-[#87A08F] mt-0.5">
+                        {s.date}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card>
+              <h3 className="font-bold text-[#1B4332] mb-2">Informasi</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex gap-2">
+                  <Calendar
+                    size={15}
+                    className="text-[#6B7770] flex-shrink-0 mt-0.5"
                   />
+                  <span className="text-[#6B7770]">
+                    Estimasi pengumuman:{" "}
+                    <strong className="text-[#3D4442]">
+                      {p.batas_pengumuman}
+                    </strong>
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <AlertCircle
+                    size={15}
+                    className="text-[#6B7770] flex-shrink-0 mt-0.5"
+                  />
+                  <span className="text-[#6B7770]">
+                    Pertanyaan? Hubungi admin di{" "}
+                    <strong className="text-[#1B4332]">admin@simago.id</strong>
+                  </span>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        <div className={cn("space-y-5", !seleksiSelesai && "lg:col-span-2")}>
+          {p.status === "menunggu" && (
+            <Card>
+              <h3 className="font-bold text-[#1B4332] mb-1">
+                Lengkapi & Kirim Dokumen
+              </h3>
+              <p className="text-xs text-[#6B7770] mb-4">
+                Unggah seluruh dokumen wajib di bawah ini, lalu kirim untuk
+                diverifikasi admin.
+              </p>
+              <UploadDokumen embedded onChanged={load} />
+            </Card>
+          )}
+
+          {seleksiSelesai && (
+            <Card>
+              <div className="max-w-2xl mx-auto text-sm text-[#3D4442] leading-relaxed">
+                {p.status === "disetujui" ? (
+                  <>
+                    <h2 className="text-lg font-bold text-[#1B4332] mb-3">
+                      Selamat, Kamu Diterima! 🎉
+                    </h2>
+                    <p className="mb-3">
+                      Pendaftaran magang kamu telah disetujui. Kamu resmi
+                      menjadi peserta magang dan dapat melanjutkan ke tahap
+                      pelaksanaan magang.
+                    </p>
+                    <div className="mb-3 p-3 rounded-lg bg-[#F1F3F1] space-y-1">
+                      <p>
+                        <span className="text-[#6B7770]">Penempatan:</span>{" "}
+                        <strong className="text-[#1B4332]">{p.divisi}</strong>
+                      </p>
+                      <p>
+                        <span className="text-[#6B7770]">Periode:</span>{" "}
+                        <strong className="text-[#1B4332]">
+                          {formatTanggalPanjang(p.tanggal_mulai)} –{" "}
+                          {formatTanggalPanjang(p.tanggal_selesai)}
+                        </strong>
+                      </p>
+                    </div>
+                    <p className="mb-3">
+                      Mulai dari periode tersebut, kamu sudah dapat mengikuti
+                      kegiatan magang serta mengisi absensi dan laporan harian
+                      melalui SIMAGO.
+                    </p>
+                    <p className="mb-3">
+                      Silakan cek menu Tracking untuk melihat informasi dan
+                      perkembangan kegiatan magang kamu.
+                    </p>
+                    <p>
+                      Selamat menjalankan kegiatan magang! Semoga pengalaman ini
+                      menjadi kesempatan untuk belajar, berkembang, dan
+                      mendapatkan pengalaman baru.
+                    </p>
+                  </>
+                ) : kedaluwarsa ? (
+                  <>
+                    <h2 className="text-lg font-bold text-amber-700 mb-3">
+                      Pendaftaran Kamu Kedaluwarsa
+                    </h2>
+                    <p className="mb-3">
+                      Batas waktu pengumuman untuk pendaftaran ini sudah
+                      terlewati tanpa ada keputusan dari admin. Ini{" "}
+                      <strong>bukan berarti kamu ditolak</strong> — murni karena
+                      keterlambatan proses di sisi kami.
+                    </p>
+                    <p className="mb-3">
+                      Kamu tetap bisa mengajukan pendaftaran baru kapan saja
+                      untuk mencoba kembali.
+                    </p>
+                    <p>
+                      Mohon maaf atas ketidaknyamanannya, dan terima kasih atas
+                      kesabaran serta minat kamu mendaftar magang di sini.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-lg font-bold text-red-700 mb-3">
+                      Mohon Maaf, Kamu Belum Diterima
+                    </h2>
+                    <p className="mb-3">
+                      Setelah melalui proses seleksi, kami belum dapat menerima
+                      kamu untuk mengikuti program magang pada periode ini.
+                      Keputusan ini semata-mata karena keterbatasan kuota dan
+                      kebutuhan divisi saat ini, bukan karena kekurangan kamu.
+                    </p>
+                    <p className="mb-3">
+                      Jangan berkecil hati — kamu tetap bisa mengajukan
+                      pendaftaran baru kapan saja untuk mencoba kembali pada
+                      periode berikutnya.
+                    </p>
+                    <p>
+                      Terima kasih atas minat dan usaha kamu mendaftar magang di
+                      sini. Semoga kesempatan berikutnya membawa hasil yang
+                      lebih baik!
+                    </p>
+                  </>
                 )}
               </div>
-              <div className={cn("pb-6", i === steps.length - 1 && "pb-0")}>
-                <p
-                  className={cn(
-                    "font-bold text-sm",
-                    s.done || s.active ? "text-[#1B4332]" : "text-[#6B7770]",
-                  )}
-                >
-                  {s.label}
-                </p>
-                <p className="text-xs text-[#6B7770] mt-0.5">{s.desc}</p>
-                <p className="text-xs font-medium text-[#87A08F] mt-0.5">
-                  {s.date}
-                </p>
-              </div>
-            </div>
-          ))}
+            </Card>
+          )}
+
+          {(p.status === "ditolak" || kedaluwarsa) && (
+            <Card className="flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-sm text-[#3D4442]">
+                {kedaluwarsa
+                  ? "Pendaftaran ini sudah melewati batas pengumuman. Kamu bisa mengajukan pendaftaran baru."
+                  : "Kamu bisa mengajukan pendaftaran baru untuk mencoba kembali."}
+              </p>
+              <button
+                onClick={onDaftarUlang}
+                className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors flex-shrink-0"
+              >
+                <Plus size={15} /> Daftar Baru
+              </button>
+            </Card>
+          )}
         </div>
-      </Card>
-
-      {p.status === "menunggu" && (
-        <Card>
-          <h3 className="font-bold text-[#1B4332] mb-1">
-            Lengkapi & Kirim Dokumen
-          </h3>
-          <p className="text-xs text-[#6B7770] mb-4">
-            Unggah seluruh dokumen wajib di bawah ini, lalu kirim untuk
-            diverifikasi admin.
-          </p>
-          <UploadDokumen embedded onChanged={load} />
-        </Card>
-      )}
-
-      {(p.status === "ditolak" || kedaluwarsa) && (
-        <Card className="flex items-center justify-between gap-3 flex-wrap">
-          <p className="text-sm text-[#3D4442]">
-            {kedaluwarsa
-              ? "Pendaftaran ini sudah melewati batas pengumuman. Kamu bisa mengajukan pendaftaran baru."
-              : "Kamu bisa mengajukan pendaftaran baru untuk mencoba kembali."}
-          </p>
-          <button
-            onClick={onDaftarUlang}
-            className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors flex-shrink-0"
-          >
-            <Plus size={15} /> Daftar Baru
-          </button>
-        </Card>
-      )}
-
-      <Card>
-        <h3 className="font-bold text-[#1B4332] mb-2">Informasi</h3>
-        <div className="space-y-2 text-sm">
-          <div className="flex gap-2">
-            <Calendar
-              size={15}
-              className="text-[#6B7770] flex-shrink-0 mt-0.5"
-            />
-            <span className="text-[#6B7770]">
-              Estimasi pengumuman:{" "}
-              <strong className="text-[#3D4442]">{p.batas_pengumuman}</strong>
-            </span>
-          </div>
-          <div className="flex gap-2">
-            <AlertCircle
-              size={15}
-              className="text-[#6B7770] flex-shrink-0 mt-0.5"
-            />
-            <span className="text-[#6B7770]">
-              Pertanyaan? Hubungi admin di{" "}
-              <strong className="text-[#1B4332]">admin@simago.id</strong>
-            </span>
-          </div>
-        </div>
-      </Card>
+      </div>
     </div>
   );
 }
@@ -6236,9 +6362,7 @@ function PresensiKegiatan({
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-bold text-[#1B4332]">
-        Presensi & Kegiatan
-      </h1>
+      <h1 className="text-xl font-bold text-[#1B4332]">Presensi & Kegiatan</h1>
 
       <div className="flex gap-1 bg-[#F1F3F1] p-1 rounded-lg w-fit overflow-x-auto">
         {tabs.map((t) => (
@@ -6258,9 +6382,7 @@ function PresensiKegiatan({
       </div>
 
       {tab === "monitoring" && <AdminMonitoring />}
-      {tab === "absensi" && (
-        <AbsensiVerify onSelectPeserta={onSelectPeserta} />
-      )}
+      {tab === "absensi" && <AbsensiVerify onSelectPeserta={onSelectPeserta} />}
       {tab === "laporan" && <ReviewLaporan onSelectPeserta={onSelectPeserta} />}
     </div>
   );
@@ -6776,6 +6898,41 @@ export default function App() {
       .catch(() => sessionStorage.removeItem("simago_token"))
       .finally(() => setCheckingSession(false));
   }, []);
+
+  // Role akun "calon" bisa berubah jadi "peserta" di server (begitu admin
+  // menyetujui pendaftarannya), tapi tab yang sedang terbuka tidak otomatis
+  // tahu perubahan itu — role di state cuma diisi sekali saat login/refresh.
+  // Supaya menu Peserta (Absensi, Laporan, dst.) muncul tanpa perlu logout
+  // manual, cek ulang /me secara berkala dan setiap kali tab ini difokuskan.
+  useEffect(() => {
+    if (!loggedIn || role !== "calon") return;
+
+    async function cekRoleTerbaru() {
+      try {
+        const { data } = await api.get("/me");
+        if (data.data.role !== "calon") {
+          setRole(data.data.role as Role);
+          setPage("dashboard"); // sambutan awal di tampilan Peserta yang baru
+        }
+      } catch {
+        // Diamkan saja — kalau token benar-benar tidak valid lagi,
+        // interceptor global (onUnauthorized) yang akan menangani logout.
+      }
+    }
+
+    const interval = setInterval(cekRoleTerbaru, 30000); // tiap 30 detik
+    function onVisible() {
+      if (document.visibilityState === "visible") cekRoleTerbaru();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", cekRoleTerbaru);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", cekRoleTerbaru);
+    };
+  }, [loggedIn, role]);
 
   if (checkingSession) return <LoadingState label="Memuat sesi..." />;
   if (!loggedIn) return <LoginPage onLogin={handleLogin} />;
