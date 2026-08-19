@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -55,6 +56,13 @@ class PesertaMagangController extends Controller
         return new PesertaMagangResource($peserta->load(['mahasiswa.user', 'divisi']));
     }
 
+    /**
+     * Admin: rekap absensi satu peserta untuk halaman "Rekap" di Monitoring
+     * Kehadiran. Data diambil dari tabel `absensis` yang sudah ada, tanpa
+     * struktur/tabel baru:
+     * - Datang & Pulang dikelompokkan per minggu (Senin-Jumat).
+     * - Izin, Sakit, dan Lupa Absen (di_luar_jam) ditampilkan harian.
+     */
     public function rekapAbsensi(PesertaMagang $pesertaMagang)
     {
         $pesertaMagang->load(['mahasiswa.user', 'divisi']);
@@ -113,7 +121,7 @@ class PesertaMagangController extends Controller
                 $status = match (true) {
                     $absensi->status === 'izin' => 'Izin',
                     $absensi->status === 'sakit' => 'Sakit',
-                    (bool) $absensi->di_luar_jam => 'Terlambat Absen',
+                    (bool) $absensi->di_luar_jam => 'Lupa Absen',
                     default => null,
                 };
 

@@ -2514,7 +2514,9 @@ function RekapAbsensiPeserta({
         ? "bg-amber-100 text-amber-800"
         : status === "Sakit"
           ? "bg-red-100 text-red-700"
-          : "bg-orange-100 text-orange-800"; // Terlambat Absen
+          : status === "Lupa Absen"
+            ? "bg-orange-100 text-orange-800"
+            : "bg-gray-100 text-gray-700";
     return (
       <span
         className={cn(
@@ -2578,115 +2580,120 @@ function RekapAbsensiPeserta({
             </div>
           </Card>
 
-          <div>
-            <h2 className="text-base font-bold text-[#1B4332] mb-3">
-              Rekap Datang & Pulang
-            </h2>
-            {data.mingguan.length === 0 ? (
-              <Card>
-                <EmptyState label="Belum ada data absensi datang/pulang." />
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {data.mingguan.map((m) => (
-                  <Card key={m.minggu}>
-                    <p className="font-bold text-[#1B4332] mb-0.5">
-                      Minggu {m.minggu}
-                    </p>
-                    <p className="text-xs text-[#6B7770] mb-3">
-                      Periode: {m.periode}
-                    </p>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-[#1B4332]/10">
-                            {["Hari", "Tanggal", "Jam Datang", "Jam Pulang"].map(
-                              (h) => (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+            <div>
+              <h2 className="text-base font-bold text-[#1B4332] mb-3">
+                Datang & Pulang
+              </h2>
+              {data.mingguan.length === 0 ? (
+                <Card>
+                  <EmptyState label="Belum ada data absensi datang/pulang." />
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {data.mingguan.map((m) => (
+                    <Card key={m.minggu}>
+                      <p className="font-bold text-[#1B4332] mb-0.5">
+                        Minggu {m.minggu}
+                      </p>
+                      <p className="text-xs text-[#6B7770] mb-3">
+                        Periode: {m.periode}
+                      </p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-[#1B4332]/10">
+                              {[
+                                "Hari",
+                                "Tanggal",
+                                "Jam Datang",
+                                "Jam Pulang",
+                              ].map((h) => (
                                 <th
                                   key={h}
                                   className="text-left py-2 px-3 text-[#6B7770] text-xs font-semibold uppercase tracking-wide"
                                 >
                                   {h}
                                 </th>
-                              ),
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {m.hari.map((h) => (
-                            <tr
-                              key={h.tanggal}
-                              className="border-b border-[#1B4332]/5"
-                            >
-                              <td className="py-2.5 px-3 font-semibold text-[#1B4332]">
-                                {h.hari}
-                              </td>
-                              <td className="py-2.5 px-3 text-[#6B7770]">
-                                {h.tanggal}
-                              </td>
-                              <td className="py-2.5 px-3 text-[#3D4442]">
-                                {h.jam_masuk ?? "-"}
-                              </td>
-                              <td className="py-2.5 px-3 text-[#3D4442]">
-                                {h.jam_keluar ?? "-"}
-                              </td>
+                              ))}
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <h2 className="text-base font-bold text-[#1B4332] mb-3">
-              Izin, Sakit & Terlambat Absen
-            </h2>
-            <Card>
-              {data.izin_sakit_terlambat.length === 0 ? (
-                <EmptyState label="Tidak ada catatan izin, sakit, atau keterlambatan." />
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-[#1B4332]/10">
-                        {["Tanggal", "Hari", "Status", "Keterangan"].map(
-                          (h) => (
-                            <th
-                              key={h}
-                              className="text-left py-2.5 px-3 text-[#6B7770] text-xs font-semibold uppercase tracking-wide"
-                            >
-                              {h}
-                            </th>
-                          ),
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.izin_sakit_terlambat.map((k, i) => (
-                        <tr key={i} className="border-b border-[#1B4332]/5">
-                          <td className="py-3 px-3 font-semibold text-[#1B4332]">
-                            {k.tanggal}
-                          </td>
-                          <td className="py-3 px-3 text-[#6B7770]">
-                            {k.hari}
-                          </td>
-                          <td className="py-3 px-3">
-                            {kejadianBadge(k.status)}
-                          </td>
-                          <td className="py-3 px-3 text-[#3D4442]">
-                            {k.keterangan ?? "-"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          </thead>
+                          <tbody>
+                            {m.hari.map((h) => (
+                              <tr
+                                key={h.tanggal}
+                                className="border-b border-[#1B4332]/5"
+                              >
+                                <td className="py-2.5 px-3 font-semibold text-[#1B4332]">
+                                  {h.hari}
+                                </td>
+                                <td className="py-2.5 px-3 text-[#6B7770]">
+                                  {h.tanggal}
+                                </td>
+                                <td className="py-2.5 px-3 text-[#3D4442]">
+                                  {h.jam_masuk ?? "-"}
+                                </td>
+                                <td className="py-2.5 px-3 text-[#3D4442]">
+                                  {h.jam_keluar ?? "-"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </Card>
+                  ))}
                 </div>
               )}
-            </Card>
+            </div>
+
+            <div>
+              <h2 className="text-base font-bold text-[#1B4332] mb-3">
+                Izin, Sakit & Lupa Absen
+              </h2>
+              <Card>
+                {data.izin_sakit_terlambat.length === 0 ? (
+                  <EmptyState label="Tidak ada catatan izin, sakit, atau lupa absen." />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-[#1B4332]/10">
+                          {["Tanggal", "Hari", "Status", "Keterangan"].map(
+                            (h) => (
+                              <th
+                                key={h}
+                                className="text-left py-2.5 px-3 text-[#6B7770] text-xs font-semibold uppercase tracking-wide"
+                              >
+                                {h}
+                              </th>
+                            ),
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.izin_sakit_terlambat.map((k, i) => (
+                          <tr key={i} className="border-b border-[#1B4332]/5">
+                            <td className="py-3 px-3 font-semibold text-[#1B4332]">
+                              {k.tanggal}
+                            </td>
+                            <td className="py-3 px-3 text-[#6B7770]">
+                              {k.hari}
+                            </td>
+                            <td className="py-3 px-3">
+                              {kejadianBadge(k.status)}
+                            </td>
+                            <td className="py-3 px-3 text-[#3D4442]">
+                              {k.keterangan ?? "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            </div>
           </div>
         </>
       ) : null}
@@ -2773,7 +2780,7 @@ function AdminMonitoring() {
                     "Divisi",
                     "Hadir",
                     "Total Hari",
-                    "% Kehadiran",
+                    "Kehadiran",
                     "Progres",
                     "Status",
                     "Rekap",
@@ -2822,9 +2829,9 @@ function AdminMonitoring() {
                       <td className="py-3 px-3">
                         <button
                           onClick={() => setRekapId(p.id)}
-                          className="px-3 py-1.5 rounded-lg border border-[#1B4332]/20 text-[#1B4332] text-xs font-semibold hover:bg-[#1B4332] hover:text-white transition-colors"
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#D1FAE5] text-[#1B4332] text-xs font-semibold hover:bg-[#A8C3AD] transition-colors whitespace-nowrap"
                         >
-                          Rekap
+                          <ClipboardList size={13} /> Rekap
                         </button>
                       </td>
                     </tr>
