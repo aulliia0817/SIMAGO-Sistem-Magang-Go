@@ -50,12 +50,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
             if ($request->is('api/*')) {
                 $message = $e->getMessage();
-                $pesanBawaanRouting =
-                    str_starts_with($message, 'The route ') &&
-                    str_contains($message, 'could not be found');
+                $pesanBawaan =
+                    (str_starts_with($message, 'The route ') && str_contains($message, 'could not be found'))
+                    || str_starts_with($message, 'No query results for model');
 
                 return response()->json([
-                    'message' => ($message !== '' && ! $pesanBawaanRouting)
+                    'message' => ($message !== '' && ! $pesanBawaan)
                         ? $message
                         : 'Data tidak ditemukan.',
                 ], 404);

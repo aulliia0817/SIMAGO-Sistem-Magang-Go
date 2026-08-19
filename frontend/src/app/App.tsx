@@ -161,6 +161,34 @@ type PesertaItem = {
   persen: number;
   status: string;
 };
+type RekapHari = {
+  hari: string;
+  tanggal: string;
+  jam_masuk: string | null;
+  jam_keluar: string | null;
+};
+type RekapMinggu = {
+  minggu: number;
+  periode: string;
+  hari: RekapHari[];
+};
+type RekapKejadian = {
+  tanggal: string;
+  hari: string;
+  status: string;
+  keterangan: string | null;
+};
+type RekapAbsensiData = {
+  peserta: {
+    id: number;
+    nama: string;
+    divisi: string;
+    tanggal_mulai: string | null;
+    tanggal_selesai: string | null;
+  };
+  mingguan: RekapMinggu[];
+  izin_sakit_terlambat: RekapKejadian[];
+};
 type AbsensiItem = {
   id: number;
   peserta_magang_id: number;
@@ -2448,12 +2476,231 @@ function AdminProfil() {
   );
 }
 
+// ─── Rekap Absensi Peserta (dari tombol "Rekap" di Monitoring Kehadiran) ───
+// State navigasinya LOKAL di dalam AdminMonitoring (bukan mekanisme
+// selectedPesertaId/setPage global), supaya tombol "Kembali" mengarah balik
+// ke tab Monitoring Kehadiran — bukan ke Dashboard.
+function RekapAbsensiPeserta({
+  pesertaMagangId,
+  onBack,
+}: {
+  pesertaMagangId: number;
+  onBack: () => void;
+}) {
+  const [data, setData] = useState<RekapAbsensiData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await api.get(`/peserta/${pesertaMagangId}/rekap-absensi`);
+      setData(res.data.data);
+    } catch (err) {
+      setError(apiErrorMessage(err, "Gagal memuat rekap absensi."));
+    } finally {
+      setLoading(false);
+    }
+  }, [pesertaMagangId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  function kejadianBadge(status: string) {
+    const cls =
+      status === "Izin"
+        ? "bg-amber-100 text-amber-800"
+        : status === "Sakit"
+          ? "bg-red-100 text-red-700"
+          : "bg-orange-100 text-orange-800"; // Terlambat Absen
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold",
+          cls,
+        )}
+      >
+        {status}
+      </span>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center gap-3 flex-wrap justify-between">
+        <h1 className="text-xl font-bold text-[#1B4332]">Rekap Absensi</h1>
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-sm font-semibold text-[#6B7770] hover:text-[#1B4332] transition-colors"
+        >
+          <ArrowLeft size={15} /> Kembali ke Monitoring Kehadiran
+        </button>
+      </div>
+
+      {loading ? (
+        <Card>
+          <LoadingState />
+        </Card>
+      ) : error ? (
+        <Card>
+          <ErrorState message={error} onRetry={load} />
+        </Card>
+      ) : data ? (
+        <>
+          <Card>
+            <div className="flex flex-wrap gap-x-10 gap-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7770]">
+                  Nama Peserta
+                </p>
+                <p className="font-bold text-[#1B4332]">{data.peserta.nama}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7770]">
+                  Divisi
+                </p>
+                <p className="font-bold text-[#1B4332]">
+                  {data.peserta.divisi}
+                </p>
+              </div>
+              {data.peserta.tanggal_mulai && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7770]">
+                    Periode Magang
+                  </p>
+                  <p className="font-bold text-[#1B4332]">
+                    {data.peserta.tanggal_mulai} – {data.peserta.tanggal_selesai}
+                  </p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <div>
+            <h2 className="text-base font-bold text-[#1B4332] mb-3">
+              Rekap Datang & Pulang
+            </h2>
+            {data.mingguan.length === 0 ? (
+              <Card>
+                <EmptyState label="Belum ada data absensi datang/pulang." />
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {data.mingguan.map((m) => (
+                  <Card key={m.minggu}>
+                    <p className="font-bold text-[#1B4332] mb-0.5">
+                      Minggu {m.minggu}
+                    </p>
+                    <p className="text-xs text-[#6B7770] mb-3">
+                      Periode: {m.periode}
+                    </p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-[#1B4332]/10">
+                            {["Hari", "Tanggal", "Jam Datang", "Jam Pulang"].map(
+                              (h) => (
+                                <th
+                                  key={h}
+                                  className="text-left py-2 px-3 text-[#6B7770] text-xs font-semibold uppercase tracking-wide"
+                                >
+                                  {h}
+                                </th>
+                              ),
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {m.hari.map((h) => (
+                            <tr
+                              key={h.tanggal}
+                              className="border-b border-[#1B4332]/5"
+                            >
+                              <td className="py-2.5 px-3 font-semibold text-[#1B4332]">
+                                {h.hari}
+                              </td>
+                              <td className="py-2.5 px-3 text-[#6B7770]">
+                                {h.tanggal}
+                              </td>
+                              <td className="py-2.5 px-3 text-[#3D4442]">
+                                {h.jam_masuk ?? "-"}
+                              </td>
+                              <td className="py-2.5 px-3 text-[#3D4442]">
+                                {h.jam_keluar ?? "-"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h2 className="text-base font-bold text-[#1B4332] mb-3">
+              Izin, Sakit & Terlambat Absen
+            </h2>
+            <Card>
+              {data.izin_sakit_terlambat.length === 0 ? (
+                <EmptyState label="Tidak ada catatan izin, sakit, atau keterlambatan." />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[#1B4332]/10">
+                        {["Tanggal", "Hari", "Status", "Keterangan"].map(
+                          (h) => (
+                            <th
+                              key={h}
+                              className="text-left py-2.5 px-3 text-[#6B7770] text-xs font-semibold uppercase tracking-wide"
+                            >
+                              {h}
+                            </th>
+                          ),
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.izin_sakit_terlambat.map((k, i) => (
+                        <tr key={i} className="border-b border-[#1B4332]/5">
+                          <td className="py-3 px-3 font-semibold text-[#1B4332]">
+                            {k.tanggal}
+                          </td>
+                          <td className="py-3 px-3 text-[#6B7770]">
+                            {k.hari}
+                          </td>
+                          <td className="py-3 px-3">
+                            {kejadianBadge(k.status)}
+                          </td>
+                          <td className="py-3 px-3 text-[#3D4442]">
+                            {k.keterangan ?? "-"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 function AdminMonitoring() {
   const [divisi, setDivisi] = useState<Divisi[]>([]);
   const [divisiId, setDivisiId] = useState("semua");
   const [list, setList] = useState<PesertaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [rekapId, setRekapId] = useState<number | null>(null);
 
   useEffect(() => {
     api
@@ -2480,6 +2727,15 @@ function AdminMonitoring() {
   useEffect(() => {
     load();
   }, [load]);
+
+  if (rekapId !== null) {
+    return (
+      <RekapAbsensiPeserta
+        pesertaMagangId={rekapId}
+        onBack={() => setRekapId(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -2520,6 +2776,7 @@ function AdminMonitoring() {
                     "% Kehadiran",
                     "Progres",
                     "Status",
+                    "Rekap",
                   ].map((h) => (
                     <th
                       key={h}
@@ -2561,6 +2818,14 @@ function AdminMonitoring() {
                       </td>
                       <td className="py-3 px-3">
                         <StatusBadge status={kehadiranStatus} />
+                      </td>
+                      <td className="py-3 px-3">
+                        <button
+                          onClick={() => setRekapId(p.id)}
+                          className="px-3 py-1.5 rounded-lg border border-[#1B4332]/20 text-[#1B4332] text-xs font-semibold hover:bg-[#1B4332] hover:text-white transition-colors"
+                        >
+                          Rekap
+                        </button>
                       </td>
                     </tr>
                   );
@@ -6364,16 +6629,16 @@ function PresensiKegiatan({
     <div className="space-y-5">
       <h1 className="text-xl font-bold text-[#1B4332]">Presensi & Kegiatan</h1>
 
-      <div className="flex gap-1 bg-[#F1F3F1] p-1 rounded-lg w-fit overflow-x-auto">
+      <div className="flex gap-1.5 bg-[#EAF2ED] p-1.5 rounded-xl w-fit overflow-x-auto">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
             className={cn(
-              "px-4 py-1.5 rounded-md text-sm font-semibold transition-colors whitespace-nowrap",
+              "px-4 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap",
               tab === t.key
-                ? "bg-white text-[#1B4332] shadow-sm"
-                : "text-[#6B7770] hover:text-[#3D4442]",
+                ? "bg-[#1B4332] text-white shadow-sm"
+                : "text-[#2D5A45] hover:bg-[#1B4332]/10",
             )}
           >
             {t.label}

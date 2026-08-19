@@ -94,6 +94,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:admin')->group(function () {
         Route::get('/peserta', [PesertaMagangController::class, 'index']);
         Route::get('/peserta/{pesertaMagang}', [PesertaMagangController::class, 'show']);
+        Route::get('/peserta/{pesertaMagang}/rekap-absensi', [PesertaMagangController::class, 'rekapAbsensi']);
         Route::put('/peserta/{pesertaMagang}', [PesertaMagangController::class, 'update']);
         Route::get('/peserta/{pesertaMagang}/rekomendasi', [RekomendasiController::class, 'index']);
         Route::post('/peserta/{pesertaMagang}/rekomendasi', [RekomendasiController::class, 'store']);
