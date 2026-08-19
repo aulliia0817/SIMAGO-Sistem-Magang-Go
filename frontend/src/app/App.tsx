@@ -2573,7 +2573,8 @@ function RekapAbsensiPeserta({
                     Periode Magang
                   </p>
                   <p className="font-bold text-[#1B4332]">
-                    {data.peserta.tanggal_mulai} – {data.peserta.tanggal_selesai}
+                    {data.peserta.tanggal_mulai} –{" "}
+                    {data.peserta.tanggal_selesai}
                   </p>
                 </div>
               )}
@@ -5015,7 +5016,7 @@ function TrackingStatus({
 
           {seleksiSelesai && (
             <Card>
-              <div className="max-w-2xl mx-auto text-sm text-[#3D4442] leading-relaxed">
+              <div className="text-sm text-[#3D4442] leading-relaxed">
                 {p.status === "disetujui" ? (
                   <>
                     <h2 className="text-lg font-bold text-[#1B4332] mb-3">
@@ -5043,10 +5044,6 @@ function TrackingStatus({
                       Mulai dari periode tersebut, kamu sudah dapat mengikuti
                       kegiatan magang serta mengisi absensi dan laporan harian
                       melalui SIMAGO.
-                    </p>
-                    <p className="mb-3">
-                      Silakan cek menu Tracking untuk melihat informasi dan
-                      perkembangan kegiatan magang kamu.
                     </p>
                     <p>
                       Selamat menjalankan kegiatan magang! Semoga pengalaman ini
@@ -5158,6 +5155,12 @@ function siftDalamJam(sift: string): boolean {
 
 function AbsensiHariIni() {
   const [entries, setEntries] = useState<AbsensiItem[]>([]);
+  const [periode, setPeriode] = useState<{
+    tanggal_mulai: string;
+    tanggal_selesai: string;
+    tanggal_mulai_iso: string;
+    tanggal_selesai_iso: string;
+  } | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
@@ -5169,8 +5172,12 @@ function AbsensiHariIni() {
 
   const load = useCallback(async () => {
     try {
-      const { data } = await api.get("/absensi/saya");
-      setEntries(data.data);
+      const [absRes, pesertaRes] = await Promise.all([
+        api.get("/absensi/saya"),
+        api.get("/peserta/saya"),
+      ]);
+      setEntries(absRes.data.data);
+      setPeriode(pesertaRes.data.data);
     } catch {
       // widget ini hanya perlu status hari ini; kalau gagal, cukup diamkan
       // saja supaya tidak mengganggu tampilan dashboard secara keseluruhan.
@@ -5180,6 +5187,15 @@ function AbsensiHariIni() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Absensi cuma boleh diisi dalam rentang tanggal_mulai–tanggal_selesai
+  // periode magangnya — bukan sejak hari dia disetujui admin.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const belumMulai =
+    !!periode?.tanggal_mulai_iso && todayIso < periode.tanggal_mulai_iso;
+  const sudahSelesai =
+    !!periode?.tanggal_selesai_iso && todayIso > periode.tanggal_selesai_iso;
+  const bisaAbsenHariIni = !belumMulai && !sudahSelesai;
 
   // Format sama persis dengan Carbon::format('d M Y') di backend (bahasa Inggris),
   // supaya perbandingan tanggal "hari ini" akurat.
@@ -5334,6 +5350,16 @@ function AbsensiHariIni() {
 
   return (
     <div className="space-y-5">
+      {!bisaAbsenHariIni && periode && (
+        <Card className="border-amber-200 bg-amber-50">
+          <p className="text-sm text-amber-900">
+            {belumMulai
+              ? `Periode magang kamu belum dimulai. Absensi baru bisa diisi mulai tanggal ${periode.tanggal_mulai}.`
+              : `Periode magang kamu sudah berakhir sejak tanggal ${periode.tanggal_selesai}. Absensi tidak dapat diisi lagi.`}
+          </p>
+        </Card>
+      )}
+
       <Card className="border-amber-200 bg-amber-50 mb-5">
         <div className="flex items-start gap-3">
           <div className="space-y-4 text-sm text-amber-900">
@@ -5420,7 +5446,8 @@ function AbsensiHariIni() {
             resetForm();
             setShowForm(true);
           }}
-          className="px-5 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors"
+          disabled={!bisaAbsenHariIni}
+          className="px-5 py-2 bg-[#1B4332] text-white text-sm font-semibold rounded-lg hover:bg-[#2D5A45] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Isi Absensi
         </button>

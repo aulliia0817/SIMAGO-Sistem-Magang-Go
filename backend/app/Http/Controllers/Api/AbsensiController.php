@@ -33,6 +33,16 @@ class AbsensiController extends Controller
         $peserta = $request->user()->mahasiswa?->pesertaMagang;
         abort_unless($peserta, 404, 'Anda belum menjadi peserta magang aktif.');
 
+        $hariIni = now()->startOfDay();
+        if ($peserta->tanggal_mulai && $hariIni->lt($peserta->tanggal_mulai)) {
+            abort(422, 'Periode magang Anda belum dimulai. Absensi baru bisa diisi mulai tanggal '
+                . $peserta->tanggal_mulai->translatedFormat('d F Y') . '.');
+        }
+        if ($peserta->tanggal_selesai && $hariIni->gt($peserta->tanggal_selesai)) {
+            abort(422, 'Periode magang Anda sudah berakhir sejak tanggal '
+                . $peserta->tanggal_selesai->translatedFormat('d F Y') . ', absensi tidak dapat diisi lagi.');
+        }
+
         $data = $request->validated();
         $sift = $data['sift'];
 

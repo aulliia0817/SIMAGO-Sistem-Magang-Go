@@ -70,7 +70,7 @@ class PesertaMagangController extends Controller
         $absensiPerTanggal = $pesertaMagang->absensis()
             ->orderBy('tanggal')
             ->get()
-            ->keyBy(fn ($a) => $a->tanggal->toDateString());
+            ->keyBy(fn($a) => $a->tanggal->toDateString());
 
         $mulai = $pesertaMagang->tanggal_mulai;
         $selesai = $pesertaMagang->tanggal_selesai;
@@ -88,10 +88,10 @@ class PesertaMagangController extends Controller
                 if ($cursor->isWeekday()) {
                     $awalMinggu = $cursor->copy()->startOfWeek(Carbon::MONDAY);
 
-                    if (! $awalMingguSaatIni || ! $awalMinggu->isSameDay($awalMingguSaatIni)) {
+                    if (!$awalMingguSaatIni || !$awalMinggu->isSameDay($awalMingguSaatIni)) {
                         if ($awalMingguSaatIni) {
                             $mingguKe++;
-                            $mingguan[] = $this->bentukRekapMinggu($mingguKe, $awalMingguSaatIni, $hariMingguIni);
+                            $mingguan[] = $this->bentukRekapMinggu($mingguKe, $hariMingguIni);
                         }
                         $awalMingguSaatIni = $awalMinggu;
                         $hariMingguIni = [];
@@ -112,7 +112,7 @@ class PesertaMagangController extends Controller
 
             if ($awalMingguSaatIni) {
                 $mingguKe++;
-                $mingguan[] = $this->bentukRekapMinggu($mingguKe, $awalMingguSaatIni, $hariMingguIni);
+                $mingguan[] = $this->bentukRekapMinggu($mingguKe, $hariMingguIni);
             }
         }
 
@@ -125,7 +125,7 @@ class PesertaMagangController extends Controller
                     default => null,
                 };
 
-                if (! $status) {
+                if (!$status) {
                     return null;
                 }
 
@@ -140,7 +140,7 @@ class PesertaMagangController extends Controller
             ->filter()
             ->sortByDesc('tanggal_urut')
             ->values()
-            ->map(fn ($row) => collect($row)->except('tanggal_urut')->all());
+            ->map(fn($row) => collect($row)->except('tanggal_urut')->all());
 
         return response()->json([
             'data' => [
@@ -157,13 +157,19 @@ class PesertaMagangController extends Controller
         ]);
     }
 
-    private function bentukRekapMinggu(int $nomor, Carbon $awalMinggu, array $hari): array
+    private function bentukRekapMinggu(int $nomor, array $hari): array
     {
-        $akhirMinggu = $awalMinggu->copy()->addDays(4); // Jumat
+        // Label periode mengikuti tanggal PERTAMA & TERAKHIR yang benar-benar
+        // ada di data minggu ini — bukan selalu dipaksa Senin-Jumat penuh.
+        // Kalau tanggal_mulai peserta jatuh di tengah minggu (mis. Rabu), atau
+        // minggu yang sedang berjalan terpotong oleh hari ini, labelnya tetap
+        // akurat sesuai data yang ditampilkan, bukan rentang minggu kalender.
+        $awal = $hari[0]['tanggal'] ?? '-';
+        $akhir = $hari[count($hari) - 1]['tanggal'] ?? '-';
 
         return [
             'minggu' => $nomor,
-            'periode' => $awalMinggu->translatedFormat('d F Y').' - '.$akhirMinggu->translatedFormat('d F Y'),
+            'periode' => $awal === $akhir ? $awal : "{$awal} - {$akhir}",
             'hari' => $hari,
         ];
     }

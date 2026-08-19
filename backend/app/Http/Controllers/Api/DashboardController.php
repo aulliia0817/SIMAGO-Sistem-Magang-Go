@@ -67,11 +67,30 @@ class DashboardController extends Controller
             return $this->calon($user);
         }
 
+        $totalHari = $peserta->tanggal_mulai && $peserta->tanggal_selesai
+            ? $peserta->tanggal_mulai->diffInWeekdays($peserta->tanggal_selesai)
+            : 0;
+
+        // Sama seperti PesertaMagangResource: diffInWeekdays() itu jarak
+        // MUTLAK, jadi periode yang belum mulai bisa kehitung "sudah jalan"
+        // kalau dipakai langsung. Dicek dulu posisi hari ini relatif
+        // terhadap periode sebelum dihitung jaraknya.
+        $hariBerjalan = 0;
+        if ($peserta->tanggal_mulai && $peserta->tanggal_selesai) {
+            if (now()->lt($peserta->tanggal_mulai)) {
+                $hariBerjalan = 0;
+            } elseif (now()->gt($peserta->tanggal_selesai)) {
+                $hariBerjalan = $totalHari;
+            } else {
+                $hariBerjalan = $peserta->tanggal_mulai->diffInWeekdays(now());
+            }
+        }
+
         return response()->json([
             'periode' => optional($peserta->tanggal_mulai)->format('d M Y') . ' - ' . optional($peserta->tanggal_selesai)->format('d M Y'),
             'divisi' => $peserta->divisi->nama ?? '-',
-            'hari_berjalan' => now()->diffInWeekdays($peserta->tanggal_mulai),
-            'total_hari' => $peserta->tanggal_mulai->diffInWeekdays($peserta->tanggal_selesai),
+            'hari_berjalan' => $hariBerjalan,
+            'total_hari' => $totalHari,
             'persentase_kehadiran' => $peserta->persen_kehadiran,
             'laporan_dibuat' => $peserta->laporanHarians()->count(),
             'status_sertifikat' => $peserta->sertifikat?->status ?? 'belum-ada',

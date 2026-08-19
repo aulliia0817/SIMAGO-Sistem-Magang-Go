@@ -202,53 +202,48 @@ class PendaftaranController extends Controller
     {
         $data = $request->validated();
 
-        DB::transaction(function () use ($data, $pendaftaran) {
-            $pendaftaran->update([
-                'status' => $data['status'],
-                'catatan_admin' => $data['catatan_admin'] ?? $pendaftaran->catatan_admin,
-            ]);
+        $pendaftaran->update([
+            'status' => $data['status'],
+            'catatan_admin' => $data['catatan_admin'] ?? $pendaftaran->catatan_admin,
+        ]);
 
-            $pendaftaran->load(['mahasiswa.user', 'divisi', 'pesertaMagang']);
+        $pendaftaran->load(['mahasiswa.user', 'divisi', 'pesertaMagang']);
 
-            if ($data['status'] === 'disetujui') {
-                // Disetujui → otomatis jadi peserta magang, mengikuti divisi &
-                // periode yang dipilih saat mendaftar. Admin masih bisa mengubah
-                // divisinya lewat dropdown "Penempatan" di halaman Data Pendaftar.
-                // Dibungkus transaction: kalau langkah mana pun di bawah ini
-                // gagal, status pendaftaran ikut batal berubah (tidak nyangkut
-                // "disetujui" tanpa peserta_magang yang benar-benar terbentuk).
-                if (!$pendaftaran->pesertaMagang) {
-                    PesertaMagang::create([
-                        'pendaftaran_id' => $pendaftaran->id,
-                        'mahasiswa_id' => $pendaftaran->mahasiswa_id,
-                        'divisi_id' => $pendaftaran->divisi_id,
-                        'tanggal_mulai' => $pendaftaran->tanggal_mulai,
-                        'tanggal_selesai' => $pendaftaran->tanggal_selesai,
-                        'status' => 'aktif',
-                    ]);
-                    $pendaftaran->mahasiswa->user()->update(['role' => 'peserta']);
-                    $pendaftaran->load('pesertaMagang');
-                }
-
-                Notifikasi::kirim(
-                    $pendaftaran->mahasiswa->user,
-                    'Hasil Seleksi Pendaftaran Magang',
-                    "Selamat! Anda diterima sebagai peserta magang di divisi {$pendaftaran->divisi->nama}. Silakan pantau jadwal, absensi, dan laporan harian Anda mulai {$pendaftaran->tanggal_mulai->translatedFormat('d M Y')}.",
-                    halaman: 'tracking',
-                    pendaftaranId: $pendaftaran->id
-                );
-            } elseif ($data['status'] === 'ditolak') {
-                Notifikasi::kirim(
-                    $pendaftaran->mahasiswa->user,
-                    'Hasil Seleksi Pendaftaran Magang',
-                    'Mohon maaf, pendaftaran magang Anda belum dapat kami terima kali ini.',
-                    halaman: 'tracking',
-                    pendaftaranId: $pendaftaran->id
-                );
+        if ($data['status'] === 'disetujui') {
+            // Disetujui → otomatis jadi peserta magang, mengikuti divisi &
+            // periode yang dipilih saat mendaftar. Admin masih bisa mengubah
+            // divisinya lewat dropdown "Penempatan" di halaman Data Pendaftar.
+            if (!$pendaftaran->pesertaMagang) {
+                PesertaMagang::create([
+                    'pendaftaran_id' => $pendaftaran->id,
+                    'mahasiswa_id' => $pendaftaran->mahasiswa_id,
+                    'divisi_id' => $pendaftaran->divisi_id,
+                    'tanggal_mulai' => $pendaftaran->tanggal_mulai,
+                    'tanggal_selesai' => $pendaftaran->tanggal_selesai,
+                    'status' => 'aktif',
+                ]);
+                $pendaftaran->mahasiswa->user()->update(['role' => 'peserta']);
+                $pendaftaran->load('pesertaMagang');
             }
-        });
 
-        return new PendaftaranResource($pendaftaran->fresh(['mahasiswa.user', 'divisi', 'pesertaMagang']));
+            Notifikasi::kirim(
+                $pendaftaran->mahasiswa->user,
+                'Hasil Seleksi Pendaftaran Magang',
+                "Selamat! Anda diterima sebagai peserta magang di divisi {$pendaftaran->divisi->nama}. Silakan pantau jadwal, absensi, dan laporan harian Anda mulai {$pendaftaran->tanggal_mulai->translatedFormat('d M Y')}.",
+                halaman: 'pendaftaran',
+                pendaftaranId: $pendaftaran->id
+            );
+        } elseif ($data['status'] === 'ditolak') {
+            Notifikasi::kirim(
+                $pendaftaran->mahasiswa->user,
+                'Hasil Seleksi Pendaftaran Magang',
+                'Mohon maaf, pendaftaran magang Anda belum dapat kami terima kali ini.',
+                halaman: 'pendaftaran',
+                pendaftaranId: $pendaftaran->id
+            );
+        }
+
+        return new PendaftaranResource($pendaftaran);
     }
 
     public function destroy(Pendaftaran $pendaftaran)
